@@ -1,0 +1,409 @@
+'use client';
+
+import Image from 'next/image';
+import React, { memo, useEffect, useState } from 'react';
+import {
+  User,
+  Bell,
+  BellOff,
+  BellRing,
+  Shield,
+  Palette,
+  Check,
+  Lock,
+  AlertCircle,
+  LoaderCircle,
+  LogOut,
+  Smartphone,
+} from 'lucide-react';
+import { updateSettingsApi } from '../services/api';
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import { isStandaloneDisplay } from './InstallPrompt';
+
+export const SettingsView = memo(function SettingsView({
+  currentUser,
+  onUserUpdated,
+  onLogout,
+}) {
+  const [activeSection, setActiveSection] = useState('profile');
+  const push = usePushNotifications();
+  const [isInstalled, setIsInstalled] = useState(true);
+
+  // Resolved after mount: display-mode is unknown while rendering on the server.
+  useEffect(() => {
+    setIsInstalled(isStandaloneDisplay());
+  }, []);
+
+  // Interactive Form state
+  const [displayName, setDisplayName] = useState(currentUser?.name || '');
+  const [statusMessage, setStatusMessage] = useState(currentUser?.statusMessage || '');
+  const [notificationsEnabled, setNotificationsEnabled] = useState(
+    currentUser?.preferences?.notificationsEnabled ?? true
+  );
+  const [soundEnabled, setSoundEnabled] = useState(
+    currentUser?.preferences?.soundEnabled ?? true
+  );
+  const [showOnlineStatus, setShowOnlineStatus] = useState(
+    currentUser?.preferences?.showOnlineStatus ?? true
+  );
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async (event) => {
+    event?.preventDefault();
+    setIsSaving(true);
+    setSaveError('');
+    setSavedSuccess(false);
+    try {
+      const { user } = await updateSettingsApi({
+        name: displayName.trim(),
+        statusMessage: statusMessage.trim(),
+        preferences: {
+          notificationsEnabled,
+          soundEnabled,
+          showOnlineStatus,
+        },
+      });
+      onUserUpdated?.(user);
+      setSavedSuccess(true);
+      window.setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (error) {
+      setSaveError(error.message || 'Unable to save your settings');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex h-full flex-1 select-none flex-col overflow-hidden bg-surface md:ml-[100px] md:flex-row">
+      {/* Settings Navigation Sidebar */}
+      <div className="flex w-full flex-shrink-0 flex-col justify-between border-b border-outline-variant/40 bg-surface-container p-4 pt-[calc(1rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(1.5rem+env(safe-area-inset-top))] md:w-64 md:border-b-0 md:border-r">
+        <div>
+          <h1 className="hidden md:block text-xl font-semibold text-on-surface mb-6">Settings</h1>
+          <nav className="flex gap-2 overflow-x-auto pb-1 md:pb-0 md:block md:space-y-1 md:overflow-visible">
+            <button
+              onClick={() => setActiveSection('profile')}
+              className={`flex-shrink-0 whitespace-nowrap md:w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                activeSection === 'profile'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
+              }`}
+            >
+              <User className="w-4 h-4" />
+              <span>Profile & Account</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('notifications')}
+              className={`flex-shrink-0 whitespace-nowrap md:w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                activeSection === 'notifications'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
+              }`}
+            >
+              <Bell className="w-4 h-4" />
+              <span>Notifications & Sounds</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('privacy')}
+              className={`flex-shrink-0 whitespace-nowrap md:w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                activeSection === 'privacy'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
+              }`}
+            >
+              <Shield className="w-4 h-4" />
+              <span>Privacy & Security</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('appearance')}
+              className={`flex-shrink-0 whitespace-nowrap md:w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
+                activeSection === 'appearance'
+                  ? 'bg-primary text-white shadow-xs'
+                  : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
+              }`}
+            >
+              <Palette className="w-4 h-4" />
+              <span>Appearance & Theme</span>
+            </button>
+          </nav>
+        </div>
+
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="mt-3 md:mt-auto flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sign Out Session</span>
+          </button>
+        )}
+      </div>
+
+      {/* Content Form Area */}
+      <div className="scroll-touch max-w-3xl flex-1 overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:p-6 md:p-8 md:pb-8">
+        {savedSuccess && (
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
+            <Check className="w-4 h-4 text-emerald-600" />
+            <span>Your settings have been saved successfully!</span>
+          </div>
+        )}
+        {saveError && (
+          <div role="alert" className="mb-6 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+            <span>{saveError}</span>
+          </div>
+        )}
+
+        {/* Profile Section */}
+        {activeSection === 'profile' && (
+          <form onSubmit={handleSave} className="space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold text-on-surface">Profile Settings</h2>
+              <p className="text-xs text-outline">Update your public profile details and avatar.</p>
+            </div>
+
+            <div className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-outline-variant/40">
+              <Image
+                src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                alt="Avatar"
+                width={64}
+                height={64}
+                className="w-16 h-16 rounded-full object-cover border-2 border-surface-container"
+              />
+              <div>
+                <button
+                  type="button"
+                  disabled
+                  title="Avatar uploads are not available yet"
+                  className="cursor-not-allowed rounded-lg bg-surface-container-low px-3 py-1.5 text-xs font-semibold text-outline"
+                >
+                  Change Photo
+                </button>
+                <p className="text-[11px] text-outline mt-1">JPG or PNG, max size 2MB.</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1">Display Name</label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full bg-white border border-outline-variant rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-on-surface-variant mb-1">Status Message</label>
+                <input
+                  type="text"
+                  value={statusMessage}
+                  onChange={(e) => setStatusMessage(e.target.value)}
+                  className="w-full bg-white border border-outline-variant rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isSaving || !displayName.trim()}
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary-container text-white font-semibold text-xs rounded-xl shadow-xs transition-all active:scale-95 disabled:opacity-50"
+            >
+              {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
+              Save Settings
+            </button>
+          </form>
+        )}
+
+        {/* Notifications Section */}
+        {activeSection === 'notifications' && (
+          <form onSubmit={handleSave} className="space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold text-on-surface">Notification Preferences</h2>
+              <p className="text-xs text-outline">Choose how you receive alerts and incoming messages.</p>
+            </div>
+
+            {/* Web push — per-device, handled by the service worker */}
+            <div className="rounded-2xl border border-outline-variant/40 bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <span
+                    className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full ${
+                      push.isSubscribed
+                        ? 'bg-emerald-50 text-emerald-600'
+                        : 'bg-secondary-container text-primary'
+                    }`}
+                  >
+                    {push.isSubscribed ? (
+                      <BellRing className="h-4 w-4" />
+                    ) : (
+                      <BellOff className="h-4 w-4" />
+                    )}
+                  </span>
+                  <div>
+                    <h3 className="text-xs font-semibold text-on-surface">
+                      Push Notifications On This Device
+                    </h3>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-outline">
+                      {push.isSubscribed
+                        ? 'This device gets a notification when a message arrives while Wave is closed.'
+                        : 'Allow notifications so messages reach you when the app is closed or in the background.'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={push.isSubscribed ? push.unsubscribe : push.subscribe}
+                  disabled={
+                    push.isBusy ||
+                    !push.isSupported ||
+                    !push.isServerConfigured ||
+                    push.permission === 'denied'
+                  }
+                  className={`inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50 ${
+                    push.isSubscribed
+                      ? 'border border-outline-variant bg-white text-on-surface-variant'
+                      : 'bg-primary text-white'
+                  }`}
+                >
+                  {push.isBusy && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
+                  {push.isSubscribed ? 'Turn off' : 'Turn on'}
+                </button>
+              </div>
+
+              {!push.isSupported && (
+                <p className="mt-3 rounded-xl bg-surface-container-low p-3 text-[11px] text-outline">
+                  This browser cannot receive web push. On iPhone or iPad, install Wave to
+                  the Home Screen first (iOS 16.4 or newer).
+                </p>
+              )}
+              {push.isSupported && !push.isServerConfigured && (
+                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] text-amber-800">
+                  The server has no VAPID keys configured, so push delivery is disabled.
+                </p>
+              )}
+              {push.permission === 'denied' && (
+                <p className="mt-3 rounded-xl bg-red-50 p-3 text-[11px] text-red-700">
+                  Notifications are blocked for this site. Re-enable them in your browser
+                  settings, then turn them on here.
+                </p>
+              )}
+              {push.error && (
+                <p role="alert" className="mt-3 text-[11px] font-medium text-red-600">
+                  {push.error}
+                </p>
+              )}
+              {!isInstalled && (
+                <p className="mt-3 flex items-start gap-2 text-[11px] text-outline">
+                  <Smartphone className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                  Installing Wave to your home screen makes notifications and offline mode
+                  work like a native app.
+                </p>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl border border-outline-variant/40 divide-y divide-surface-container">
+              <div className="p-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-semibold text-on-surface">Message Alerts</h3>
+                  <p className="text-[11px] text-outline">
+                    Account-wide switch for new-message notifications on every device.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={notificationsEnabled}
+                  onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                  className="w-4 h-4 accent-primary cursor-pointer"
+                />
+              </div>
+
+              <div className="p-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-xs font-semibold text-on-surface">Sound Alerts</h3>
+                  <p className="text-[11px] text-outline">Play audio chimes for incoming calls & texts.</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={soundEnabled}
+                  onChange={(e) => setSoundEnabled(e.target.checked)}
+                  className="w-4 h-4 accent-primary cursor-pointer"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
+              Save Preferences
+            </button>
+          </form>
+        )}
+
+        {/* Privacy & Security */}
+        {activeSection === 'privacy' && (
+          <form onSubmit={handleSave} className="space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold text-on-surface">Privacy & Security</h2>
+              <p className="text-xs text-outline">Manage your sign-in and the devices you are signed in on.</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-outline-variant/40 p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Lock className="w-5 h-5 text-primary" />
+                  <div>
+                    <h3 className="text-xs font-semibold text-on-surface">Online Presence</h3>
+                    <p className="text-[11px] text-outline">Allow contacts to see when you are online.</p>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={showOnlineStatus}
+                  onChange={(e) => setShowOnlineStatus(e.target.checked)}
+                  className="w-4 h-4 accent-primary cursor-pointer"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+            >
+              {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
+              Save Privacy
+            </button>
+          </form>
+        )}
+
+        {/* Appearance */}
+        {activeSection === 'appearance' && (
+          <div className="space-y-6">
+            <div>
+              <h2 className="text-lg font-semibold text-on-surface">Appearance & Design</h2>
+              <p className="text-xs text-outline">Customize the visual layout tokens.</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-outline-variant/40 p-6 space-y-4">
+              <h3 className="text-xs font-semibold text-on-surface">Active Palette Token</h3>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary border-2 border-white shadow-md flex items-center justify-center text-white">
+                  <Check className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-medium text-on-surface">Wave Blue (#0058BE)</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});

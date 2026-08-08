@@ -1,0 +1,237 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --primary: #0058be;
+    --primary-container: #2170e4;
+    --on-primary: #ffffff;
+    --surface: #f8f9fa;
+    --surface-bright: #f8f9fa;
+    --surface-dim: #d9dadb;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low: #f3f4f5;
+    --surface-container: #edeeef;
+    --surface-container-high: #e7e8e9;
+    --surface-container-highest: #e1e3e4;
+    --on-surface: #191c1d;
+    --on-surface-variant: #424754;
+    --outline: #727785;
+    --outline-variant: #c2c6d6;
+    --secondary-container: #d6e0f1;
+    --on-secondary-container: #596372;
+  }
+}
+
+@theme {
+  --color-primary: #0058be;
+  --color-primary-container: #2170e4;
+  --color-on-primary: #ffffff;
+  --color-surface: #f8f9fa;
+  --color-surface-bright: #f8f9fa;
+  --color-surface-dim: #d9dadb;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f3f4f5;
+  --color-surface-container: #edeeef;
+  --color-surface-container-high: #e7e8e9;
+  --color-surface-container-highest: #e1e3e4;
+  --color-on-surface: #191c1d;
+  --color-on-surface-variant: #424754;
+  --color-outline: #727785;
+  --color-outline-variant: #c2c6d6;
+  --color-secondary-container: #d6e0f1;
+  --color-on-secondary-container: #596372;
+
+  --font-display: var(--font-bricolage), var(--font-sans), system-ui, sans-serif;
+
+  --width-sidebar-width: 280px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Liquid glass                                                       */
+/* ------------------------------------------------------------------ */
+
+/* Glass only reads as glass when there is something behind it to refract,
+   so the shell gets soft colour fields instead of a flat grey. */
+.ambient {
+  position: relative;
+  background-color: var(--surface);
+  background-image:
+    radial-gradient(55rem 38rem at 8% -8%, rgba(0, 88, 190, 0.38), transparent 62%),
+    radial-gradient(42rem 32rem at 102% 4%, rgba(124, 92, 232, 0.34), transparent 60%),
+    radial-gradient(48rem 38rem at 30% 108%, rgba(0, 172, 200, 0.3), transparent 62%),
+    radial-gradient(40rem 30rem at 88% 96%, rgba(236, 112, 168, 0.22), transparent 60%);
+  background-attachment: fixed;
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.42);
+  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(24px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow:
+    0 8px 32px -8px rgba(16, 24, 40, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+/* Denser tint for chrome that sits above scrolling content. */
+.glass-chrome {
+  background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(30px) saturate(200%);
+  backdrop-filter: blur(30px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    0 12px 40px -12px rgba(16, 24, 40, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* The specular sheen that sells the material: a bright top edge that
+   fades out before it reaches the bottom of the element. */
+.glass-sheen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    160deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.08) 32%,
+    transparent 60%
+  );
+}
+
+/* Selected pill inside a glass rail — tinted rather than opaque. */
+.glass-active {
+  background: rgba(0, 88, 190, 0.14);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 2px 10px -4px rgba(0, 88, 190, 0.45);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-chrome {
+    background: rgba(255, 255, 255, 0.95);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Typing indicator: a crest travelling through the dots, like the logo mark.
+   Each dot runs the same sine-shaped cycle offset in time, so the lift reads
+   as one wave rolling left to right rather than three separate bounces. */
+@keyframes typing-wave {
+  0% {
+    transform: translateY(2px) scale(0.88);
+    opacity: 0.4;
+  }
+  25% {
+    transform: translateY(-3.5px) scale(1.12);
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(2px) scale(0.88);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(2px) scale(0.88);
+    opacity: 0.4;
+  }
+}
+
+.typing-dot {
+  /* cubic-bezier approximates a sine swell: eased at crest and trough. */
+  animation: typing-wave 1.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .typing-dot {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #e1e3e4;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c2c6d6;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  background-color: var(--surface);
+  color: var(--on-surface);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  /* dvh tracks the mobile URL bar / keyboard so the composer stays reachable. */
+  height: 100dvh;
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+/* Installed-app chrome: pointer taps shouldn't wait on the 300ms click delay,
+   and rubber-band scrolling shouldn't drag the whole shell. */
+button,
+[role='button'],
+a {
+  touch-action: manipulation;
+}
+
+@media (display-mode: standalone) {
+  /* No browser UI to fall back on, so respect the device insets ourselves. */
+  .pwa-safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+}
+
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-x {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+}
+
+@media (max-width: 767px) {
+  .mobile-safe-tabs {
+    height: calc(4rem + env(safe-area-inset-bottom));
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .mobile-safe-composer {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* iOS Safari zooms the viewport when a focused field is under 16px. */
+  input:not([type='checkbox']):not([type='radio']),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
