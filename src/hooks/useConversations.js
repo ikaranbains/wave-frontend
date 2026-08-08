@@ -28,6 +28,7 @@ import {
   onUserStopTyping,
 } from '../services/socket';
 import {
+  describeCallEvent,
   formatContact,
   formatConversation,
   formatMessage,
@@ -240,6 +241,7 @@ export function useConversations({ currentUser, isBackendConnected }) {
       // not switched sound off. Own messages echo back over the socket too.
       if (
         !formatted.isSentByMe &&
+        !formatted.callEvent &&
         currentUserRef.current?.preferences?.soundEnabled !== false
       ) {
         playMessageSound();
@@ -251,6 +253,12 @@ export function useConversations({ currentUser, isBackendConnected }) {
       }));
 
       let lastMsgText = formatted.text;
+      if (!lastMsgText && formatted.callEvent) {
+        lastMsgText = describeCallEvent(
+          formatted.callEvent,
+          formatted.isSentByMe
+        ).label;
+      }
       if (!lastMsgText && incomingMessage.attachment) {
         const type = incomingMessage.attachment.type;
         if (type === 'image') lastMsgText = 'Sent a photo';

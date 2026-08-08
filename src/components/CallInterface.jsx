@@ -14,7 +14,6 @@ import {
   Volume2,
   X,
 } from 'lucide-react';
-import { Room, RoomEvent, Track } from 'livekit-client';
 import { getCallTokenApi } from '../services/api';
 
 function formatDuration(totalSeconds) {
@@ -99,55 +98,63 @@ export function CallInterface({ call, onEnd }) {
 
   useEffect(() => {
     if (call.status === 'ringing') {
-      return;
+      return undefined;
     }
 
     let cancelled = false;
-    const room = new Room({
-      adaptiveStream: true,
-      dynacast: true,
-    });
+    let room = null;
     const remoteAudioContainer = remoteAudioRef.current;
-    roomRef.current = room;
 
-    const handleTrackSubscribed = (track) => {
-      if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
-        track.attach(remoteVideoRef.current);
-        setHasRemoteVideo(true);
-      }
-
-      if (track.kind === Track.Kind.Audio && remoteAudioContainer) {
-        const audioElement = track.attach();
-        audioElement.autoplay = true;
-        remoteAudioContainer.appendChild(audioElement);
-      }
-    };
-
-    const handleTrackUnsubscribed = (track) => {
-      if (track.kind === Track.Kind.Video) {
-        if (remoteVideoRef.current) track.detach(remoteVideoRef.current);
-        setHasRemoteVideo(false);
-      } else {
-        track.detach().forEach((element) => element.remove());
-      }
-    };
-
-    room
-      .on(RoomEvent.TrackSubscribed, handleTrackSubscribed)
-      .on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed)
-      .on(RoomEvent.ParticipantDisconnected, () => setHasRemoteVideo(false))
-      .on(RoomEvent.AudioPlaybackStatusChanged, () => {
-        setCanPlayAudio(room.canPlaybackAudio);
-      })
-      .on(RoomEvent.Disconnected, () => {
-        if (!cancelled) setConnectionStatus('disconnected');
-      });
-
-    async function connectToCall() {
+    async function setupCall() {
       setConnectionStatus('connecting');
       setCallError('');
 
       try {
+        // Loaded on demand. livekit-client is ~700KB of WebRTC SDK and only a
+        // real call needs it, so keeping it out of the initial bundle saves
+        // every user who never places one the download and the parse cost.
+        const { Room, RoomEvent, Track } = await import('livekit-client');
+        if (cancelled) return;
+
+        room = new Room({
+          adaptiveStream: true,
+          dynacast: true,
+        });
+        roomRef.current = room;
+
+        const handleTrackSubscribed = (track) => {
+          if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
+            track.attach(remoteVideoRef.current);
+            setHasRemoteVideo(true);
+          }
+
+          if (track.kind === Track.Kind.Audio && remoteAudioContainer) {
+            const audioElement = track.attach();
+            audioElement.autoplay = true;
+            remoteAudioContainer.appendChild(audioElement);
+          }
+        };
+
+        const handleTrackUnsubscribed = (track) => {
+          if (track.kind === Track.Kind.Video) {
+            if (remoteVideoRef.current) track.detach(remoteVideoRef.current);
+            setHasRemoteVideo(false);
+          } else {
+            track.detach().forEach((element) => element.remove());
+          }
+        };
+
+        room
+          .on(RoomEvent.TrackSubscribed, handleTrackSubscribed)
+          .on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed)
+          .on(RoomEvent.ParticipantDisconnected, () => setHasRemoteVideo(false))
+          .on(RoomEvent.AudioPlaybackStatusChanged, () => {
+            setCanPlayAudio(room.canPlaybackAudio);
+          })
+          .on(RoomEvent.Disconnected, () => {
+            if (!cancelled) setConnectionStatus('disconnected');
+          });
+
         const { token, url } = await getCallTokenApi(call.conversationId);
         if (cancelled) return;
 
@@ -191,12 +198,12 @@ export function CallInterface({ call, onEnd }) {
       }
     }
 
-    connectToCall();
+    setupCall();
 
     return () => {
       cancelled = true;
-      room.removeAllListeners();
-      room.disconnect();
+      room?.removeAllListeners();
+      room?.disconnect();
       roomRef.current = null;
       remoteAudioContainer?.replaceChildren();
     };

@@ -1,18 +1,20 @@
 /* Wave service worker — app shell caching, offline outbox flush, web push. */
 
-const SW_VERSION = 'v3';
+const SW_VERSION = 'v4';
 const SHELL_CACHE = `pingme-shell-${SW_VERSION}`;
 const ASSET_CACHE = `pingme-assets-${SW_VERSION}`;
 const OFFLINE_URL = '/offline';
 const OUTBOX_SYNC_TAG = 'pingme-outbox';
 
+// Install blocks until every entry here is fetched, so this stays to what is
+// genuinely needed offline. The 512 icon and the apple touch icon are only read
+// by the OS at install/splash time — never rendered by the app — so fetching
+// them here just makes activation slower.
 const SHELL_ASSETS = [
   '/',
   OFFLINE_URL,
   '/manifest.webmanifest',
   '/wave-192.png',
-  '/wave-512.png',
-  '/apple-touch-icon.png',
 ];
 
 /* ------------------------------------------------------------------ */
