@@ -33,6 +33,7 @@ import {
   formatMessage,
   getEntityId,
 } from '../utils/chatFormatters';
+import { playMessageSound, primeNotificationSound } from '../utils/notificationSound';
 
 function upsertMessage(messages, incoming) {
   const matchIndex = messages.findIndex(
@@ -141,7 +142,7 @@ export function useConversations({ currentUser, isBackendConnected }) {
         );
       } catch (error) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
-          console.error('Error loading workspace users:', error);
+          console.error('Error loading people:', error);
         }
       } finally {
         if (contactsAbortRef.current === controller) {
@@ -180,6 +181,18 @@ export function useConversations({ currentUser, isBackendConnected }) {
     },
     [currentUser]
   );
+
+  // Unlock audio on the first interaction, so the very first incoming chime is
+  // not swallowed by the browser's autoplay policy.
+  useEffect(() => {
+    const unlock = () => primeNotificationSound();
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, []);
 
   const [typingMap, setTypingMap] = useState({});
 

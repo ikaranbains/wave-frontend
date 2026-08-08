@@ -213,6 +213,15 @@ a {
   padding-right: env(safe-area-inset-right);
 }
 
+/* Horizontal tab strips scroll by swipe; the bar itself is visual noise. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 .scroll-touch {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-y: contain;

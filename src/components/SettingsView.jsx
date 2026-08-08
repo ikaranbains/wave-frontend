@@ -20,6 +20,23 @@ import { updateSettingsApi } from '../services/api';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { isStandaloneDisplay } from './InstallPrompt';
 
+const SECTIONS = [
+  { key: 'profile', icon: User, label: 'Profile & Account', shortLabel: 'Profile' },
+  {
+    key: 'notifications',
+    icon: Bell,
+    label: 'Notifications & Sounds',
+    shortLabel: 'Alerts',
+  },
+  { key: 'privacy', icon: Shield, label: 'Privacy & Security', shortLabel: 'Privacy' },
+  {
+    key: 'appearance',
+    icon: Palette,
+    label: 'Appearance & Theme',
+    shortLabel: 'Appearance',
+  },
+];
+
 export const SettingsView = memo(function SettingsView({
   currentUser,
   onUserUpdated,
@@ -76,75 +93,49 @@ export const SettingsView = memo(function SettingsView({
   };
 
   return (
-    <div className="flex h-full flex-1 select-none flex-col overflow-hidden bg-surface md:ml-[100px] md:flex-row">
+    <div className="flex h-full min-w-0 flex-1 select-none flex-col overflow-hidden bg-surface md:ml-[100px] md:flex-row">
       {/* Settings Navigation Sidebar */}
-      <div className="flex w-full flex-shrink-0 flex-col justify-between border-b border-outline-variant/40 bg-surface-container p-4 pt-[calc(1rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(1.5rem+env(safe-area-inset-top))] md:w-64 md:border-b-0 md:border-r">
+      <div className="flex w-full min-w-0 flex-shrink-0 flex-col justify-between border-b border-outline-variant/40 bg-surface-container px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 md:w-64 md:p-6 md:pt-[calc(1.5rem+env(safe-area-inset-top))] md:border-b-0 md:border-r">
         <div>
-          <h1 className="hidden md:block text-xl font-semibold text-on-surface mb-6">Settings</h1>
-          <nav className="flex gap-2 overflow-x-auto pb-1 md:pb-0 md:block md:space-y-1 md:overflow-visible">
-            <button
-              onClick={() => setActiveSection('profile')}
-              className={`flex-shrink-0 whitespace-nowrap md:w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                activeSection === 'profile'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
-              }`}
-            >
-              <User className="w-4 h-4" />
-              <span>Profile & Account</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSection('notifications')}
-              className={`flex-shrink-0 whitespace-nowrap md:w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                activeSection === 'notifications'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
-              }`}
-            >
-              <Bell className="w-4 h-4" />
-              <span>Notifications & Sounds</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSection('privacy')}
-              className={`flex-shrink-0 whitespace-nowrap md:w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                activeSection === 'privacy'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
-              }`}
-            >
-              <Shield className="w-4 h-4" />
-              <span>Privacy & Security</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSection('appearance')}
-              className={`flex-shrink-0 whitespace-nowrap md:w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
-                activeSection === 'appearance'
-                  ? 'bg-primary text-white shadow-xs'
-                  : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
-              }`}
-            >
-              <Palette className="w-4 h-4" />
-              <span>Appearance & Theme</span>
-            </button>
+          <h1 className="mb-3 font-display text-xl font-bold tracking-tight text-on-surface md:mb-6">
+            Settings
+          </h1>
+          <nav className="no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0">
+            {SECTIONS.map(({ key, icon: Icon, label, shortLabel }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setActiveSection(key)}
+                aria-current={activeSection === key ? 'true' : undefined}
+                className={`flex flex-shrink-0 snap-start items-center gap-2.5 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all md:w-full md:gap-3 md:text-xs ${
+                  activeSection === key
+                    ? 'bg-primary text-white shadow-sm shadow-primary/25'
+                    : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
+                }`}
+              >
+                <Icon className="h-4 w-4 flex-shrink-0" />
+                <span className="md:hidden">{shortLabel}</span>
+                <span className="hidden md:inline">{label}</span>
+              </button>
+            ))}
           </nav>
         </div>
 
+        {/* Sign out lives with the content on mobile — see below — so the tab
+            strip stays a single compact row. */}
         {onLogout && (
           <button
             onClick={onLogout}
-            className="mt-3 md:mt-auto flex w-full items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-all"
+            className="mt-auto hidden w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-red-600 transition-all hover:bg-red-50 md:flex"
           >
             <LogOut className="w-4 h-4" />
-            <span>Sign Out Session</span>
+            <span>Sign out</span>
           </button>
         )}
       </div>
 
       {/* Content Form Area */}
-      <div className="scroll-touch max-w-3xl flex-1 overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:p-6 md:p-8 md:pb-8">
+      <div className="scroll-touch min-w-0 max-w-3xl flex-1 overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:p-6 md:p-8 md:pb-8">
         {savedSuccess && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-600" />
@@ -162,11 +153,11 @@ export const SettingsView = memo(function SettingsView({
         {activeSection === 'profile' && (
           <form onSubmit={handleSave} className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold text-on-surface">Profile Settings</h2>
-              <p className="text-xs text-outline">Update your public profile details and avatar.</p>
+              <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Profile Settings</h2>
+              <p className="mt-1 text-sm text-on-surface-variant">Update how you appear to the people you talk to.</p>
             </div>
 
-            <div className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-outline-variant/40">
+            <div className="flex flex-col items-center gap-4 rounded-2xl border border-outline-variant/40 bg-white p-4 text-center sm:flex-row sm:p-5 sm:text-left">
               <Image
                 src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
                 alt="Avatar"
@@ -189,22 +180,22 @@ export const SettingsView = memo(function SettingsView({
 
             <div className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1">Display Name</label>
+                <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">Display Name</label>
                 <input
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full bg-white border border-outline-variant rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                  className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface transition-all focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-on-surface-variant mb-1">Status Message</label>
+                <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">Status Message</label>
                 <input
                   type="text"
                   value={statusMessage}
                   onChange={(e) => setStatusMessage(e.target.value)}
-                  className="w-full bg-white border border-outline-variant rounded-xl px-3.5 py-2.5 text-xs text-on-surface focus:outline-none focus:border-primary"
+                  className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface transition-all focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
                 />
               </div>
             </div>
@@ -212,7 +203,7 @@ export const SettingsView = memo(function SettingsView({
             <button
               type="submit"
               disabled={isSaving || !displayName.trim()}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary-container text-white font-semibold text-xs rounded-xl shadow-xs transition-all active:scale-95 disabled:opacity-50"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-50 hover:bg-primary-container sm:w-auto sm:py-2.5"
             >
               {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
               Save Settings
@@ -224,7 +215,7 @@ export const SettingsView = memo(function SettingsView({
         {activeSection === 'notifications' && (
           <form onSubmit={handleSave} className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold text-on-surface">Notification Preferences</h2>
+              <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Notification Preferences</h2>
               <p className="text-xs text-outline">Choose how you receive alerts and incoming messages.</p>
             </div>
 
@@ -352,7 +343,7 @@ export const SettingsView = memo(function SettingsView({
         {activeSection === 'privacy' && (
           <form onSubmit={handleSave} className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold text-on-surface">Privacy & Security</h2>
+              <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Privacy & Security</h2>
               <p className="text-xs text-outline">Manage your sign-in and the devices you are signed in on.</p>
             </div>
 
@@ -388,11 +379,11 @@ export const SettingsView = memo(function SettingsView({
         {activeSection === 'appearance' && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-lg font-semibold text-on-surface">Appearance & Design</h2>
-              <p className="text-xs text-outline">Customize the visual layout tokens.</p>
+              <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Appearance & Design</h2>
+              <p className="mt-1 text-sm text-on-surface-variant">How Wave looks on this device.</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-outline-variant/40 p-6 space-y-4">
+            <div className="space-y-4 rounded-2xl border border-outline-variant/40 bg-white p-4 sm:p-6">
               <h3 className="text-xs font-semibold text-on-surface">Active Palette Token</h3>
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-full bg-primary border-2 border-white shadow-md flex items-center justify-center text-white">
@@ -402,6 +393,18 @@ export const SettingsView = memo(function SettingsView({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Mobile sign out: at the end of the content instead of stacked above
+            it, so the tab strip does not eat a third of the first screen. */}
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 py-3 text-sm font-semibold text-red-600 transition-all active:scale-[0.98] md:hidden"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Sign out</span>
+          </button>
         )}
       </div>
     </div>
