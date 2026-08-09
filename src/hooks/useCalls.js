@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { startRingtone, stopRingtone } from '../utils/notificationSound';
 import {
   acceptCall,
   declineCall,
@@ -77,6 +78,26 @@ export function useCalls({ currentUser, isBackendConnected, activeConversation }
       unsubscribeEnded();
     };
   }, [currentUser, isBackendConnected, applyActiveCall, applyIncomingCall]);
+
+  // Ring while a call is pending, and stop the moment it is answered,
+  // declined, missed or torn down — the effect's cleanup covers every exit.
+  const soundEnabled = currentUser?.preferences?.soundEnabled !== false;
+
+  useEffect(() => {
+    if (!soundEnabled) return undefined;
+
+    const isRingingIn = Boolean(incomingCall);
+    const isRingingOut =
+      activeCall?.direction === 'outgoing' && activeCall?.status === 'ringing';
+
+    if (!isRingingIn && !isRingingOut) return undefined;
+
+    startRingtone({ outgoing: !isRingingIn });
+    return () => stopRingtone();
+  }, [incomingCall, activeCall?.direction, activeCall?.status, soundEnabled]);
+
+  // Belt and braces: never leave a ringtone playing if the hook unmounts.
+  useEffect(() => () => stopRingtone(), []);
 
   const startCall = useCallback(
     async (type) => {
