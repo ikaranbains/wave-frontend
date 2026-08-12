@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import {
   Headphones,
@@ -12,9 +12,7 @@ import {
   Video,
   VideoOff,
   Volume2,
-  X,
 } from 'lucide-react';
-import { Room, RoomEvent, Track } from 'livekit-client';
 import { getCallTokenApi } from '../services/api';
 
 function formatDuration(totalSeconds) {
@@ -99,55 +97,66 @@ export function CallInterface({ call, onEnd }) {
 
   useEffect(() => {
     if (call.status === 'ringing') {
-      return;
+      return undefined;
     }
 
     let cancelled = false;
-    const room = new Room({
-      adaptiveStream: true,
-      dynacast: true,
-    });
+    let room = null;
     const remoteAudioContainer = remoteAudioRef.current;
-    roomRef.current = room;
 
-    const handleTrackSubscribed = (track) => {
-      if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
-        track.attach(remoteVideoRef.current);
-        setHasRemoteVideo(true);
-      }
-
-      if (track.kind === Track.Kind.Audio && remoteAudioContainer) {
-        const audioElement = track.attach();
-        audioElement.autoplay = true;
-        remoteAudioContainer.appendChild(audioElement);
-      }
-    };
-
-    const handleTrackUnsubscribed = (track) => {
-      if (track.kind === Track.Kind.Video) {
-        if (remoteVideoRef.current) track.detach(remoteVideoRef.current);
-        setHasRemoteVideo(false);
-      } else {
-        track.detach().forEach((element) => element.remove());
-      }
-    };
-
-    room
-      .on(RoomEvent.TrackSubscribed, handleTrackSubscribed)
-      .on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed)
-      .on(RoomEvent.ParticipantDisconnected, () => setHasRemoteVideo(false))
-      .on(RoomEvent.AudioPlaybackStatusChanged, () => {
-        setCanPlayAudio(room.canPlaybackAudio);
-      })
-      .on(RoomEvent.Disconnected, () => {
-        if (!cancelled) setConnectionStatus('disconnected');
-      });
-
-    async function connectToCall() {
+    async function setupCall() {
       setConnectionStatus('connecting');
       setCallError('');
 
       try {
+        // Loaded on demand. livekit-client is ~700KB of WebRTC SDK and only a
+        // real call needs it, so keeping it out of the initial bundle saves
+        // every user who never places one the download and the parse cost.
+        const { Room, RoomEvent, Track } = await import('livekit-client');
+        if (cancelled) return;
+
+        room = new Room({
+          adaptiveStream: true,
+          dynacast: true,
+        });
+        roomRef.current = room;
+
+        const handleTrackSubscribed = (track) => {
+          if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
+            track.attach(remoteVideoRef.current);
+            setHasRemoteVideo(true);
+          }
+
+          if (track.kind === Track.Kind.Audio && remoteAudioContainer) {
+            const audioElement = track.attach();
+            audioElement.autoplay = true;
+            if (sinkIdRef.current) {
+              audioElement.setSinkId?.(sinkIdRef.current).catch(() => {});
+            }
+            remoteAudioContainer.appendChild(audioElement);
+          }
+        };
+
+        const handleTrackUnsubscribed = (track) => {
+          if (track.kind === Track.Kind.Video) {
+            if (remoteVideoRef.current) track.detach(remoteVideoRef.current);
+            setHasRemoteVideo(false);
+          } else {
+            track.detach().forEach((element) => element.remove());
+          }
+        };
+
+        room
+          .on(RoomEvent.TrackSubscribed, handleTrackSubscribed)
+          .on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed)
+          .on(RoomEvent.ParticipantDisconnected, () => setHasRemoteVideo(false))
+          .on(RoomEvent.AudioPlaybackStatusChanged, () => {
+            setCanPlayAudio(room.canPlaybackAudio);
+          })
+          .on(RoomEvent.Disconnected, () => {
+            if (!cancelled) setConnectionStatus('disconnected');
+          });
+
         const { token, url } = await getCallTokenApi(call.conversationId);
         if (cancelled) return;
 
@@ -191,12 +200,12 @@ export function CallInterface({ call, onEnd }) {
       }
     }
 
-    connectToCall();
+    setupCall();
 
     return () => {
       cancelled = true;
-      room.removeAllListeners();
-      room.disconnect();
+      room?.removeAllListeners();
+      room?.disconnect();
       roomRef.current = null;
       remoteAudioContainer?.replaceChildren();
     };
@@ -247,116 +256,181 @@ export function CallInterface({ call, onEnd }) {
     }
   };
 
+  // Audio output routing. setSinkId is Chromium-only; on Safari/iOS the browser
+  // owns routing entirely, so the control is disabled rather than faked.
+  const sinkIdRef = useRef(null);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [canSwitchOutput, setCanSwitchOutput] = useState(false);
+
+  useEffect(() => {
+    setCanSwitchOutput(
+      typeof window !== 'undefined' &&
+        typeof window.HTMLMediaElement !== 'undefined' &&
+        typeof window.HTMLMediaElement.prototype.setSinkId === 'function'
+    );
+  }, []);
+
+  const applySink = useCallback(async (deviceId) => {
+    sinkIdRef.current = deviceId;
+    const elements = remoteAudioRef.current?.querySelectorAll('audio') || [];
+    await Promise.all(
+      [...elements].map((element) => element.setSinkId?.(deviceId).catch(() => {}))
+    );
+  }, []);
+
+  const toggleSpeaker = useCallback(async () => {
+    if (!canSwitchOutput) return;
+    const next = !isSpeakerOn;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const outputs = devices.filter((device) => device.kind === 'audiooutput');
+      const speaker =
+        outputs.find((device) => /speaker/i.test(device.label)) ||
+        outputs.find((device) => device.deviceId === 'default');
+      const earpiece =
+        outputs.find((device) => /earpiece|headset|headphone/i.test(device.label)) ||
+        outputs.find((device) => device.deviceId === 'communications') ||
+        speaker;
+      const target = next ? speaker : earpiece;
+      if (target) await applySink(target.deviceId);
+      setIsSpeakerOn(next);
+      setCallError('');
+    } catch {
+      setCallError('Could not switch the audio output.');
+    }
+  }, [applySink, canSwitchOutput, isSpeakerOn]);
+
+  const isConnected = connectionStatus === 'connected';
   const statusText = {
-    ringing: `Calling ${call.contact?.name || 'contact'}…`,
-    connecting: 'Connecting securely…',
+    ringing: 'Ringing…',
+    connecting: 'Connecting…',
     connected: formatDuration(callDuration),
-    disconnected: 'Call disconnected',
-    failed: 'Unable to connect',
+    disconnected: 'Call ended',
+    failed: 'Could not connect',
   }[connectionStatus];
+
+  const initial = call.contact?.name?.charAt(0)?.toUpperCase() || '?';
+
+  const ControlButton = ({ onClick, disabled, active, label, children, tone }) => (
+    <div className="flex w-16 flex-col items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        aria-pressed={active === undefined ? undefined : active}
+        className={`flex h-14 w-14 items-center justify-center rounded-full transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${
+          tone === 'danger'
+            ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 hover:bg-red-600'
+            : active
+            ? 'bg-white text-slate-900'
+            : 'bg-white/12 text-white ring-1 ring-white/15 hover:bg-white/20'
+        }`}
+      >
+        {children}
+      </button>
+      <span className="text-[11px] font-medium text-white/60">{label}</span>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-[100] h-dvh overflow-hidden bg-slate-950 text-white">
       <div ref={remoteAudioRef} className="hidden" aria-hidden="true" />
 
-      {isVideoCall ? (
-        <>
-          <video
-            ref={remoteVideoRef}
-            autoPlay
-            playsInline
-            className={`h-full w-full object-cover transition-opacity ${
-              hasRemoteVideo ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
-          {!hasRemoteVideo && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-slate-800 to-slate-950">
+      {/* Stage */}
+      {isVideoCall && hasRemoteVideo ? (
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,#1e3a5f_0%,#0f172a_48%,#020617_100%)]">
+          <div className="flex h-full flex-col items-center justify-center px-6">
+            <div className="relative flex items-center justify-center">
+              {/* Concentric rings read as "live" while connected, and as an
+                  outgoing pulse while the other side is still ringing. */}
+              {(isConnected || connectionStatus === 'ringing') && (
+                <>
+                  <span className="absolute h-44 w-44 animate-ping rounded-full bg-primary/20 [animation-duration:2.4s]" />
+                  <span className="absolute h-56 w-56 animate-ping rounded-full bg-primary/10 [animation-duration:2.4s] [animation-delay:0.5s]" />
+                </>
+              )}
               {call.contact?.avatar ? (
                 <Image
                   src={call.contact.avatar}
-                  alt={call.contact?.name || 'Contact'}
-                  width={128}
-                  height={128}
-                  className="h-32 w-32 rounded-full border-4 border-white/10 object-cover shadow-2xl"
+                  alt=""
+                  width={144}
+                  height={144}
+                  className="relative h-32 w-32 rounded-full object-cover ring-4 ring-white/10 sm:h-36 sm:w-36"
                 />
               ) : (
-                <span className="flex h-32 w-32 items-center justify-center rounded-full border-4 border-white/10 bg-slate-700 text-4xl font-semibold">
-                  {call.contact?.name?.charAt(0)?.toUpperCase() || '?'}
+                <span className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-container text-5xl font-bold ring-4 ring-white/10 sm:h-36 sm:w-36">
+                  {initial}
                 </span>
               )}
-              <h2 className="mt-5 text-2xl font-semibold">{call.contact?.name}</h2>
-              <p className="mt-2 text-sm text-slate-300">{statusText}</p>
             </div>
-          )}
 
-          <div className="absolute right-4 top-[calc(1.25rem+env(safe-area-inset-top))] h-36 w-24 overflow-hidden rounded-2xl border border-white/20 bg-slate-800 shadow-2xl sm:right-5 sm:h-52 sm:w-40">
-            <video
-              ref={localVideoRef}
-              autoPlay
-              muted
-              playsInline
-              className={`h-full w-full scale-x-[-1] object-cover ${
-                isCameraEnabled ? 'opacity-100' : 'opacity-0'
-              }`}
-            />
-            {!isCameraEnabled && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <VideoOff className="h-7 w-7 text-slate-400" />
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_center,_#1e3a5f_0%,_#0f172a_45%,_#020617_100%)]">
-          <div className="relative">
-            {connectionStatus === 'connected' && (
-              <div className="absolute -inset-5 animate-pulse rounded-full bg-primary/20" />
-            )}
-            {call.contact?.avatar ? (
-              <Image
-                src={call.contact.avatar}
-                alt={call.contact?.name || 'Contact'}
-                width={144}
-                height={144}
-                className="relative h-36 w-36 rounded-full border-4 border-white/10 object-cover shadow-2xl"
-              />
-            ) : (
-              <span className="relative flex h-36 w-36 items-center justify-center rounded-full border-4 border-white/10 bg-slate-700 text-4xl font-semibold">
-                {call.contact?.name?.charAt(0)?.toUpperCase() || '?'}
+            <h2 className="mt-8 font-display text-3xl font-bold tracking-tight">
+              {call.contact?.name}
+            </h2>
+            <p className="mt-2 flex items-center gap-2 text-sm text-white/60">
+              {connectionStatus === 'connecting' && (
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+              )}
+              <span className={isConnected ? 'tabular-nums text-white/80' : ''}>
+                {statusText}
               </span>
+            </p>
+
+            {isVideoCall && !hasRemoteVideo && isConnected && (
+              <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/60">
+                Camera is off on the other side
+              </p>
             )}
-          </div>
-          <h2 className="mt-6 text-2xl font-semibold">{call.contact?.name}</h2>
-          <div className="mt-2 flex items-center gap-2 text-sm text-slate-300">
-            {connectionStatus === 'connecting' && <LoaderCircle className="h-4 w-4 animate-spin" />}
-            <span>{statusText}</span>
           </div>
         </div>
       )}
 
-      <div className="absolute left-0 right-0 top-0 flex items-center justify-between bg-gradient-to-b from-black/55 to-transparent p-5 pt-[calc(1.25rem+env(safe-area-inset-top))]">
-        <div>
-          <p className="text-sm font-semibold">{call.contact?.name}</p>
-          <p className="text-xs text-white/70">{isVideoCall ? 'Video call' : 'Voice call'}</p>
+      {/* Self view */}
+      {isVideoCall && (
+        <div className="absolute right-4 top-[calc(4.5rem+env(safe-area-inset-top))] h-40 w-28 overflow-hidden rounded-3xl bg-slate-800 ring-1 ring-white/20 sm:h-52 sm:w-36">
+          <video
+            ref={localVideoRef}
+            autoPlay
+            muted
+            playsInline
+            className={`h-full w-full scale-x-[-1] object-cover transition-opacity ${
+              isCameraEnabled ? 'opacity-100' : 'opacity-0'
+            }`}
+          />
+          {!isCameraEnabled && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <VideoOff className="h-6 w-6 text-white/40" />
+            </div>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={onEnd}
-          aria-label="Close call"
-          className="rounded-full bg-black/25 p-2 hover:bg-black/40"
-        >
-          <X className="h-5 w-5" />
-        </button>
+      )}
+
+      {/* Top bar — no close control: only the red button may end a call. */}
+      <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/60 to-transparent px-5 pb-10 pt-[calc(1.25rem+env(safe-area-inset-top))]">
+        <p className="font-display text-base font-bold">{call.contact?.name}</p>
+        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-white/60">
+          {isVideoCall ? <Video className="h-3 w-3" /> : <Phone className="h-3 w-3" />}
+          <span>{isVideoCall ? 'Video call' : 'Voice call'}</span>
+          {isConnected && <span className="tabular-nums">· {formatDuration(callDuration)}</span>}
+        </p>
       </div>
 
       {(callError || !canPlayAudio) && (
-        <div className="absolute left-1/2 top-20 w-[min(90%,420px)] -translate-x-1/2 rounded-xl bg-black/65 px-4 py-3 text-center text-xs backdrop-blur">
-          {callError && <p>{callError}</p>}
+        <div className="absolute left-1/2 top-24 w-[min(90%,420px)] -translate-x-1/2 rounded-2xl bg-black/70 px-4 py-3 text-center text-xs backdrop-blur">
+          {callError && <p className="text-white/80">{callError}</p>}
           {!canPlayAudio && (
             <button
               type="button"
               onClick={enableAudioPlayback}
-              className="mt-2 inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 font-semibold text-slate-900"
+              className="mt-2 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 font-semibold text-slate-900"
             >
               <Volume2 className="h-4 w-4" />
               Enable call audio
@@ -365,51 +439,50 @@ export function CallInterface({ call, onEnd }) {
         </div>
       )}
 
-      <div className="absolute bottom-[calc(2rem+env(safe-area-inset-bottom))] left-1/2 flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/10 bg-black/45 p-3 shadow-2xl backdrop-blur-xl sm:gap-4">
-        <button
-          type="button"
-          onClick={toggleMicrophone}
-          disabled={connectionStatus !== 'connected'}
-          aria-label={isMicEnabled ? 'Mute microphone' : 'Unmute microphone'}
-          className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors disabled:opacity-40 ${
-            isMicEnabled ? 'bg-white/15 hover:bg-white/25' : 'bg-white text-slate-900'
-          }`}
-        >
-          {isMicEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-        </button>
-
-        {isVideoCall && (
-          <button
-            type="button"
-            onClick={toggleCamera}
-            disabled={connectionStatus !== 'connected'}
-            aria-label={isCameraEnabled ? 'Turn camera off' : 'Turn camera on'}
-            className={`flex h-12 w-12 items-center justify-center rounded-full transition-colors disabled:opacity-40 ${
-              isCameraEnabled ? 'bg-white/15 hover:bg-white/25' : 'bg-white text-slate-900'
-            }`}
+      {/* Controls */}
+      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-16">
+        <div className="mx-auto flex w-fit items-end gap-2 rounded-[28px] bg-white/8 p-3 ring-1 ring-white/10 backdrop-blur-xl sm:gap-3">
+          <ControlButton
+            onClick={toggleMicrophone}
+            disabled={!isConnected}
+            active={!isMicEnabled}
+            label={isMicEnabled ? 'Mute' : 'Unmute'}
           >
-            {isCameraEnabled ? (
-              <Video className="h-5 w-5" />
+            {isMicEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+          </ControlButton>
+
+          <ControlButton
+            onClick={toggleSpeaker}
+            disabled={!isConnected || !canSwitchOutput}
+            active={isSpeakerOn && canSwitchOutput}
+            label={isSpeakerOn ? 'Speaker' : 'Earpiece'}
+          >
+            {isSpeakerOn ? (
+              <Volume2 className="h-5 w-5" />
             ) : (
-              <VideoOff className="h-5 w-5" />
+              <Headphones className="h-5 w-5" />
             )}
-          </button>
-        )}
+          </ControlButton>
 
-        {!isVideoCall && (
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/15">
-            <Headphones className="h-5 w-5" />
-          </div>
-        )}
+          {isVideoCall && (
+            <ControlButton
+              onClick={toggleCamera}
+              disabled={!isConnected}
+              active={!isCameraEnabled}
+              label={isCameraEnabled ? 'Video' : 'Video off'}
+            >
+              {isCameraEnabled ? (
+                <Video className="h-5 w-5" />
+              ) : (
+                <VideoOff className="h-5 w-5" />
+              )}
+            </ControlButton>
+          )}
 
-        <button
-          type="button"
-          onClick={onEnd}
-          aria-label="End call"
-          className="flex h-12 w-14 items-center justify-center rounded-full bg-red-500 transition-transform hover:scale-105 hover:bg-red-600"
-        >
-          <PhoneOff className="h-5 w-5" />
-        </button>
+          <ControlButton onClick={onEnd} tone="danger" label="End">
+            <PhoneOff className="h-5 w-5" />
+          </ControlButton>
+        </div>
       </div>
     </div>
   );

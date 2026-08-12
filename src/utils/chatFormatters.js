@@ -51,6 +51,7 @@ export function formatMessage(message, currentUserId) {
     isSentByMe: getEntityId(message.senderId) === currentUserId,
     status: message.status || 'sent',
     attachment: message.attachment?.url ? message.attachment : undefined,
+    callEvent: message.callEvent?.outcome ? message.callEvent : undefined,
     replyTo,
     isDeleted: Boolean(message.isDeleted),
   };
@@ -110,4 +111,48 @@ export function formatLastSeen(lastSeen) {
     year: 'numeric',
   });
   return `Last seen ${fullDate} at ${timeString}`;
+}
+
+function formatCallDuration(totalSeconds) {
+  const seconds = Math.max(0, Math.round(totalSeconds || 0));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  const pad = (value) => String(value).padStart(2, '0');
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${minutes}:${pad(secs)}`;
+}
+
+/**
+ * Wording for a call entry in the thread. Phrased from the reader's side: the
+ * person who was called sees "Missed", the caller sees "No answer".
+ */
+export function describeCallEvent(callEvent, isOutgoing) {
+  const kind = callEvent?.type === 'video' ? 'Video call' : 'Voice call';
+
+  switch (callEvent?.outcome) {
+    case 'completed':
+      return {
+        label: isOutgoing ? `Outgoing ${kind.toLowerCase()}` : `Incoming ${kind.toLowerCase()}`,
+        detail: formatCallDuration(callEvent.durationSeconds),
+        missed: false,
+      };
+    case 'missed':
+      return {
+        label: isOutgoing ? `${kind} · no answer` : `Missed ${kind.toLowerCase()}`,
+        detail: '',
+        missed: true,
+      };
+    case 'declined':
+      return {
+        label: isOutgoing ? `${kind} declined` : `You declined a ${kind.toLowerCase()}`,
+        detail: '',
+        missed: true,
+      };
+    default:
+      return {
+        label: isOutgoing ? `You cancelled a ${kind.toLowerCase()}` : `Missed ${kind.toLowerCase()}`,
+        detail: '',
+        missed: true,
+      };
+  }
 }

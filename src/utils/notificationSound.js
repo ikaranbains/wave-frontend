@@ -62,3 +62,99 @@ export function playMessageSound() {
     // Audio is a nicety — never let it break message delivery.
   }
 }
+
+/* ------------------------------------------------------------------ */
+/* Ringtone                                                           */
+/* ------------------------------------------------------------------ */
+
+let ringtoneTimer = null;
+let ringtoneNodes = [];
+
+/** One bell-like note. Triangle + a soft envelope keeps it warm, not piercing. */
+function ringNote(ctx, frequency, startAt, duration, peak) {
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  oscillator.type = 'triangle';
+  oscillator.frequency.setValueAtTime(frequency, startAt);
+
+  gain.gain.setValueAtTime(0.0001, startAt);
+  gain.gain.exponentialRampToValueAtTime(peak, startAt + 0.03);
+  gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  oscillator.start(startAt);
+  oscillator.stop(startAt + duration + 0.02);
+
+  ringtoneNodes.push(oscillator, gain);
+  oscillator.onended = () => {
+    ringtoneNodes = ringtoneNodes.filter((node) => node !== oscillator && node !== gain);
+  };
+}
+
+// Two rising triplets then a rest — the shape of a phone ringing, rather than
+// a single repeated beep.
+const INCOMING_PATTERN = [
+  { at: 0.0, hz: 784, dur: 0.2 },
+  { at: 0.2, hz: 988, dur: 0.2 },
+  { at: 0.4, hz: 1175, dur: 0.34 },
+  { at: 0.85, hz: 784, dur: 0.2 },
+  { at: 1.05, hz: 988, dur: 0.2 },
+  { at: 1.25, hz: 1175, dur: 0.4 },
+];
+const INCOMING_CYCLE_MS = 3000;
+
+// Softer and sparser for the caller: a ringback, not a summons.
+const OUTGOING_PATTERN = [
+  { at: 0.0, hz: 440, dur: 0.35 },
+  { at: 0.45, hz: 440, dur: 0.35 },
+];
+const OUTGOING_CYCLE_MS = 3200;
+
+/**
+ * Loop a ringtone until stopRingtone() is called. Safe to call repeatedly —
+ * an existing ring is replaced rather than layered.
+ */
+export function startRingtone({ outgoing = false } = {}) {
+  stopRingtone();
+
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
+  const pattern = outgoing ? OUTGOING_PATTERN : INCOMING_PATTERN;
+  const cycleMs = outgoing ? OUTGOING_CYCLE_MS : INCOMING_CYCLE_MS;
+  const peak = outgoing ? 0.05 : 0.11;
+
+  const playCycle = () => {
+    if (ctx.state !== 'running') return;
+    const now = ctx.currentTime;
+    pattern.forEach(({ at, hz, dur }) => ringNote(ctx, hz, now + at, dur, peak));
+
+    // Phones that support it buzz along with each incoming ring.
+    if (!outgoing && typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([400, 200, 400]);
+    }
+  };
+
+  playCycle();
+  ringtoneTimer = window.setInterval(playCycle, cycleMs);
+}
+
+export function stopRingtone() {
+  if (ringtoneTimer) {
+    window.clearInterval(ringtoneTimer);
+    ringtoneTimer = null;
+  }
+  ringtoneNodes.forEach((node) => {
+    try {
+      node.stop?.();
+      node.disconnect?.();
+    } catch {
+      // Already stopped — nothing to clean up.
+    }
+  });
+  ringtoneNodes = [];
+  if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(0);
+}

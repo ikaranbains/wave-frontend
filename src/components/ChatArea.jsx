@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { EmojiPicker } from './EmojiPicker';
 import { getInitials, isRealAvatar } from '../utils/avatarUtils';
-import { formatLastSeen } from '../utils/chatFormatters';
+import { describeCallEvent, formatLastSeen } from '../utils/chatFormatters';
 
 // Messages that are nothing but emoji get rendered large, the way every other
 // messenger does it — at body size a lone reaction reads as a typo.
@@ -62,6 +62,43 @@ function emojiOnlyScale(text) {
   if (count === 1) return 'text-[2.75rem] leading-tight';
   if (count <= 3) return 'text-[2rem] leading-tight';
   return 'text-[1.5rem] leading-tight';
+}
+
+/**
+ * A finished call, shown inline in the thread. Centred like a day divider
+ * rather than sided like a bubble — it is a record of something that happened,
+ * not something either person said.
+ */
+function CallLogEntry({ message }) {
+  const isOutgoing = message.isSentByMe;
+  const { label, detail, missed } = describeCallEvent(message.callEvent, isOutgoing);
+  const isVideo = message.callEvent?.type === 'video';
+  const Icon = isVideo ? Video : Phone;
+
+  return (
+    <div className="my-1 flex w-full justify-center px-2">
+      <div
+        className={`flex max-w-[85%] items-center gap-2.5 rounded-2xl border px-3.5 py-2 ${
+          missed
+            ? 'border-red-200/70 bg-red-50/80 text-red-700'
+            : 'border-outline-variant/40 bg-surface-container-low text-on-surface-variant'
+        }`}
+      >
+        <span
+          className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full ${
+            missed ? 'bg-red-100 text-red-600' : 'bg-primary/10 text-primary'
+          }`}
+        >
+          <Icon className="h-3.5 w-3.5" />
+        </span>
+        <span className="min-w-0 text-xs font-medium">
+          <span className="truncate">{label}</span>
+          {detail && <span className="opacity-70"> · {detail}</span>}
+        </span>
+        <span className="flex-shrink-0 text-[11px] text-outline">{message.time}</span>
+      </div>
+    </div>
+  );
 }
 
 export const ChatArea = memo(function ChatArea({
@@ -421,6 +458,9 @@ export const ChatArea = memo(function ChatArea({
               </div>
             </div>
           ) : messages.map((msg) => (
+            msg.callEvent ? (
+              <CallLogEntry key={msg.id} message={msg} />
+            ) : (
             <div
               key={msg.id}
               className={`group/msg flex items-start gap-1.5 max-w-[85%] sm:max-w-[75%] ${
@@ -684,6 +724,7 @@ export const ChatArea = memo(function ChatArea({
                 </div>
               )}
             </div>
+            )
           ))}
 
           {/* Real-time Typing Bubble Animation */}
