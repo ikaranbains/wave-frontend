@@ -46,6 +46,71 @@
   --width-sidebar-width: 280px;
 }
 
+/* Dark mode keeps the same semantic token names, so existing components retain
+   their layout and automatically inherit the new palette. */
+html.dark {
+  color-scheme: dark;
+  --primary: #8ab4f8;
+  --primary-container: #5f91dc;
+  --on-primary: #062e68;
+  --surface: #111315;
+  --surface-bright: #191c1f;
+  --surface-dim: #0b0d0f;
+  --surface-container-lowest: #0b0d0f;
+  --surface-container-low: #171a1d;
+  --surface-container: #1d2125;
+  --surface-container-high: #272c31;
+  --surface-container-highest: #32383f;
+  --on-surface: #e4e7eb;
+  --on-surface-variant: #b8c0ca;
+  --outline: #8b96a3;
+  --outline-variant: #4b5561;
+  --secondary-container: #26364e;
+  --on-secondary-container: #c5d6f3;
+
+  --color-primary: #8ab4f8;
+  --color-primary-container: #5f91dc;
+  --color-on-primary: #062e68;
+  --color-surface: #111315;
+  --color-surface-bright: #191c1f;
+  --color-surface-dim: #0b0d0f;
+  --color-surface-container-lowest: #0b0d0f;
+  --color-surface-container-low: #171a1d;
+  --color-surface-container: #1d2125;
+  --color-surface-container-high: #272c31;
+  --color-surface-container-highest: #32383f;
+  --color-on-surface: #e4e7eb;
+  --color-on-surface-variant: #b8c0ca;
+  --color-outline: #8b96a3;
+  --color-outline-variant: #4b5561;
+  --color-secondary-container: #26364e;
+  --color-on-secondary-container: #c5d6f3;
+}
+
+html.dark [class~='bg-white'] { background-color: var(--surface-container-lowest); }
+html.dark [class~='bg-white/40'],
+html.dark [class~='bg-white/50'],
+html.dark [class~='bg-white/60'],
+html.dark [class~='bg-white/70'],
+html.dark [class~='bg-white/90'],
+html.dark [class~='bg-white/95'] { background-color: color-mix(in srgb, var(--surface-container-high) 88%, transparent); }
+html.dark .glass,
+html.dark .glass-chrome { background: color-mix(in srgb, var(--surface-container-high) 82%, transparent); border-color: color-mix(in srgb, var(--outline-variant) 65%, transparent); }
+
+/* Authentication chrome has a deliberately branded blue panel. Keep it dark
+   enough in dark mode for the white logo copy and feature text to stay legible. */
+html.dark .auth-brand {
+  background-color: #1d3557;
+}
+
+html.dark .auth-submit {
+  color: var(--on-primary);
+}
+
+html.dark .auth-mode-toggle {
+  background-color: var(--surface-container);
+}
+
 /* ------------------------------------------------------------------ */
 /* Liquid glass                                                       */
 /* ------------------------------------------------------------------ */

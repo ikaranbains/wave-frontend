@@ -113,6 +113,37 @@ export async function uploadFileApi(file, onUploadProgress) {
   }
 }
 
+export async function signupWithProfileApi({ name, email, password, bio, photo }) {
+  try {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('email', email);
+    formData.append('password', password);
+    if (bio) formData.append('statusMessage', bio);
+    if (photo) formData.append('file', photo);
+    const response = await apiClient.post('/auth/signup', formData, { requiresAuth: false });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Signup failed'));
+  }
+}
+
+export async function uploadAvatarApi(file, onUploadProgress) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    const response = await apiClient.post('/users/me/avatar', formData, {
+      onUploadProgress: (progressEvent) => {
+        if (!progressEvent.total || !onUploadProgress) return;
+        onUploadProgress(Math.round((progressEvent.loaded * 100) / progressEvent.total));
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Failed to update profile photo'));
+  }
+}
+
 export async function deleteMessageApi(messageId) {
   try {
     const response = await apiClient.delete(`/messages/${messageId}`);

@@ -15,12 +15,14 @@ import { Sidebar } from '../components/Sidebar';
 import { useAuth } from '../hooks/useAuth';
 import { useCalls } from '../hooks/useCalls';
 import { useConversations } from '../hooks/useConversations';
+import { useTheme } from '../hooks/useTheme';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('messages');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const auth = useAuth();
+  const theme = useTheme();
   const chat = useConversations(auth);
   const calls = useCalls({
     currentUser: auth.currentUser,
@@ -184,6 +186,8 @@ export default function Home() {
       {activeTab === 'settings' && (
         <SettingsView
           currentUser={auth.currentUser}
+          theme={theme.theme}
+          onThemeChange={theme.setTheme}
           onUserUpdated={auth.updateCurrentUser}
           onLogout={handleLogout}
         />

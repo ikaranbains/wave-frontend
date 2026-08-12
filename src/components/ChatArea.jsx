@@ -215,6 +215,12 @@ export const ChatArea = memo(function ChatArea({
     setUploadProgress(0);
     setSendError('');
 
+    // Clear the composer immediately. Sending can involve a remote upload,
+    // MongoDB work, and a socket acknowledgement; none of that should make
+    // typing feel blocked in production. If a local/upload error happens, the
+    // draft is restored in the catch block below.
+    setInputText('');
+
     const replyData = replyingToMessage
       ? {
           id: replyingToMessage.id,
@@ -236,6 +242,7 @@ export const ChatArea = memo(function ChatArea({
       setIsEmojiPickerOpen(false);
       setIsAttachmentMenuOpen(false);
     } catch (error) {
+      setInputText(normalizedText);
       setSendError(error.message || 'Unable to send this message');
     } finally {
       setIsSending(false);
@@ -491,14 +498,14 @@ export const ChatArea = memo(function ChatArea({
                       {msg.attachment && (
                         <div className={msg.text ? 'mt-2' : ''}>
                           {msg.attachment.type === 'image' ? (
-                            <div className="relative group/img rounded-lg overflow-hidden border border-white/20">
+                            <div className="relative group/img rounded-lg overflow-hidden border border-white/20 min-h-70 max-h-70">
                               <Image
                                 src={msg.attachment.url}
                                 alt={msg.attachment.name || 'Attachment'}
                                 width={224}
                                 height={144}
                                 onClick={() => setPreviewImage(msg.attachment?.url || null)}
-                                className="w-56 h-36 object-cover cursor-pointer hover:scale-105 transition-transform"
+                                className="w-full h-full object-contain object-top cursor-pointer hover:scale-105 transition-transform"
                               />
                             </div>
                           ) : msg.attachment.type === 'video' ? (
@@ -941,7 +948,7 @@ export const ChatArea = memo(function ChatArea({
 
       {/* Optional Info Drawer */}
       {showInfoDrawer && (
-        <aside className="scroll-touch safe-top fixed inset-0 z-40 flex w-full flex-col gap-6 overflow-y-auto bg-surface p-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] animate-in slide-in-from-right md:static md:inset-auto md:w-72 md:flex-shrink-0 md:border-l md:pb-6 border-outline-variant/40">
+        <aside className="scroll-touch fixed inset-0 z-40 flex w-full flex-col gap-6 overflow-y-auto bg-surface px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(2.5rem+env(safe-area-inset-top))] animate-in slide-in-from-right md:static md:inset-auto md:w-72 md:flex-shrink-0 md:border-l md:pb-6 md:pt-6 border-outline-variant/40">
           <div className="flex justify-between items-center">
             <h3 className="text-xs font-semibold text-on-surface uppercase tracking-wider">
               Contact Details

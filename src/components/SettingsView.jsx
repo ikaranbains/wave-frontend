@@ -15,8 +15,13 @@ import {
   LoaderCircle,
   LogOut,
   Smartphone,
+  Sun,
+  Moon,
+  Monitor,
+  Upload,
+  X,
 } from 'lucide-react';
-import { updateSettingsApi } from '../services/api';
+import { updateSettingsApi, uploadAvatarApi } from '../services/api';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { isStandaloneDisplay } from './InstallPrompt';
 
@@ -39,6 +44,8 @@ const SECTIONS = [
 
 export const SettingsView = memo(function SettingsView({
   currentUser,
+  theme = 'system',
+  onThemeChange,
   onUserUpdated,
   onLogout,
 }) {
@@ -66,6 +73,58 @@ export const SettingsView = memo(function SettingsView({
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoProgress, setPhotoProgress] = useState(0);
+  const [photoError, setPhotoError] = useState('');
+
+  useEffect(() => {
+    if (!selectedPhoto) {
+      setPhotoPreview('');
+      return undefined;
+    }
+    const previewUrl = URL.createObjectURL(selectedPhoto);
+    setPhotoPreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [selectedPhoto]);
+
+  const handlePhotoSelect = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setPhotoError('Profile photos must be JPG or PNG images.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setPhotoError('Profile photos must be 2 MB or smaller.');
+      return;
+    }
+
+    setPhotoError('');
+    setSelectedPhoto(file);
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!selectedPhoto || isUploadingPhoto) return;
+    setIsUploadingPhoto(true);
+    setPhotoProgress(0);
+    setPhotoError('');
+    try {
+      const { user } = await uploadAvatarApi(selectedPhoto, setPhotoProgress);
+      onUserUpdated?.(user);
+      setSelectedPhoto(null);
+      setPhotoProgress(0);
+      setSavedSuccess(true);
+      window.setTimeout(() => setSavedSuccess(false), 3000);
+    } catch (error) {
+      setPhotoError(error.message || 'Unable to update profile photo');
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
 
   const handleSave = async (event) => {
     event?.preventDefault();
@@ -159,22 +218,54 @@ export const SettingsView = memo(function SettingsView({
 
             <div className="flex flex-col items-center gap-4 rounded-2xl border border-outline-variant/40 bg-white p-4 text-center sm:flex-row sm:p-5 sm:text-left">
               <Image
-                src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                src={photoPreview || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
                 alt="Avatar"
                 width={64}
                 height={64}
+                unoptimized={Boolean(photoPreview)}
                 className="w-16 h-16 rounded-full object-cover border-2 border-surface-container"
               />
-              <div>
+              <div className="min-w-0 flex-1">
+                <input
+                  id="profile-photo-input"
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  onChange={handlePhotoSelect}
+                  className="sr-only"
+                />
                 <button
                   type="button"
-                  disabled
-                  title="Avatar uploads are not available yet"
-                  className="cursor-not-allowed rounded-lg bg-surface-container-low px-3 py-1.5 text-xs font-semibold text-outline"
+                  onClick={() => document.getElementById('profile-photo-input')?.click()}
+                  disabled={isUploadingPhoto}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-surface-container-low px-3 py-1.5 text-xs font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:opacity-50"
                 >
+                  <Upload className="h-3.5 w-3.5" />
                   Change Photo
                 </button>
                 <p className="text-[11px] text-outline mt-1">JPG or PNG, max size 2MB.</p>
+                {selectedPhoto && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handlePhotoUpload}
+                      disabled={isUploadingPhoto}
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-primary-container disabled:opacity-50"
+                    >
+                      {isUploadingPhoto && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
+                      {isUploadingPhoto ? `Uploading ${photoProgress}%` : 'Confirm photo'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedPhoto(null)}
+                      disabled={isUploadingPhoto}
+                      className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-outline transition-colors hover:bg-surface-container-high disabled:opacity-50"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                {photoError && <p role="alert" className="mt-2 text-[11px] font-medium text-red-600">{photoError}</p>}
               </div>
             </div>
 
@@ -384,12 +475,31 @@ export const SettingsView = memo(function SettingsView({
             </div>
 
             <div className="space-y-4 rounded-2xl border border-outline-variant/40 bg-white p-4 sm:p-6">
-              <h3 className="text-xs font-semibold text-on-surface">Active Palette Token</h3>
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full bg-primary border-2 border-white shadow-md flex items-center justify-center text-white">
-                  <Check className="w-4 h-4" />
-                </div>
-                <span className="text-xs font-medium text-on-surface">Wave Blue (#0058BE)</span>
+              <div>
+                <h3 className="text-xs font-semibold text-on-surface">Appearance</h3>
+                <p className="mt-1 text-[11px] text-outline">Choose how Wave looks on this device.</p>
+              </div>
+              <div className="grid grid-cols-3 gap-2 rounded-2xl bg-surface-container p-1">
+                {[
+                  { value: 'light', label: 'Light', Icon: Sun },
+                  { value: 'dark', label: 'Dark', Icon: Moon },
+                  { value: 'system', label: 'System', Icon: Monitor },
+                ].map(({ value, label, Icon }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => onThemeChange?.(value)}
+                    aria-pressed={theme === value}
+                    className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-[11px] font-semibold transition-all ${
+                      theme === value
+                        ? 'bg-surface-container-lowest text-primary shadow-sm'
+                        : 'text-on-surface-variant hover:text-on-surface'
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

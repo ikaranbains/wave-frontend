@@ -24,8 +24,10 @@ import {
   joinConversationRoom,
   onMessageDeleted,
   onReceiveMessage,
+  onPresenceChange,
   onUserTyping,
   onUserStopTyping,
+  requestPresenceSync,
 } from '../services/socket';
 import {
   formatContact,
@@ -294,6 +296,45 @@ export function useConversations({ currentUser, isBackendConnected }) {
       });
     });
   }, [activeConversationId, currentUser, isBackendConnected]);
+
+  useEffect(() => {
+    if (!currentUser || !isBackendConnected) return undefined;
+
+    const unbindPresence = onPresenceChange(({ userId, status, lastSeen }) => {
+      if (!userId) return;
+      const normalizedUserId = String(userId);
+      const isOnline = status === 'online';
+
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          String(conversation.contact?.id) === normalizedUserId
+            ? {
+                ...conversation,
+                isOnline,
+                contact: {
+                  ...conversation.contact,
+                  status,
+                  lastSeen,
+                },
+              }
+            : conversation
+        )
+      );
+
+      setContacts((previous) =>
+        previous.map((contact) =>
+          String(contact.id) === normalizedUserId
+            ? { ...contact, status, lastSeen }
+            : contact
+        )
+      );
+    });
+
+    // The initial connection event may have fired before this hook mounted.
+    // Ask the server for the current user's presence after subscribing.
+    requestPresenceSync();
+    return unbindPresence;
+  }, [currentUser, isBackendConnected]);
 
   const markMessage = useCallback((conversationId, clientId, changes) => {
     setMessagesMap((previous) => ({

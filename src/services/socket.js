@@ -121,6 +121,11 @@ export function onPresenceChange(callback) {
   };
 }
 
+export function requestPresenceSync() {
+  const s = getSocket();
+  if (s.connected) s.emit('presence_sync');
+}
+
 function emitCallEvent(eventName, payload) {
   const s = getSocket();
   if (!s.connected) {

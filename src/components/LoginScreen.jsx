@@ -16,8 +16,10 @@ import {
   Eye,
   EyeOff,
   Loader2,
+  Camera,
+  ArrowLeft,
 } from 'lucide-react';
-import { loginApi, signupApi } from '../services/api';
+import { loginApi, signupWithProfileApi } from '../services/api';
 import { useLoginCooldown } from '../hooks/useLoginCooldown';
 
 const HIGHLIGHTS = [
@@ -43,9 +45,13 @@ export const LoginScreen = ({ onLoginSuccess }) => {
   const [apiError, setApiError] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [signupStep, setSignupStep] = useState(1);
+  const [profilePhoto, setProfilePhoto] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
   const { remainingSeconds, isCoolingDown, startCooldown } = useLoginCooldown();
 
   const isLogin = mode === 'login';
+  const isProfileStep = !isLogin && signupStep === 2;
 
   const {
     register,
@@ -57,6 +63,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
       name: '',
       email: '',
       password: '',
+      statusMessage: '',
     },
   });
 
@@ -69,12 +76,17 @@ export const LoginScreen = ({ onLoginSuccess }) => {
       if (isLogin) {
         const data = await loginApi(formData.email, formData.password);
         await onLoginSuccess(data.user);
+      } else if (signupStep === 1) {
+        setSignupStep(2);
+        return;
       } else {
-        const data = await signupApi(
-          formData.name,
-          formData.email,
-          formData.password
-        );
+        const data = await signupWithProfileApi({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password,
+          bio: formData.statusMessage,
+          photo: profilePhoto,
+        });
         await onLoginSuccess(data.user);
       }
     } catch (err) {
@@ -86,10 +98,32 @@ export const LoginScreen = ({ onLoginSuccess }) => {
   };
 
   const switchMode = (newMode) => {
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
     setMode(newMode);
     setApiError(null);
     setShowPassword(false);
+    setSignupStep(1);
+    setProfilePhoto(null);
+    setPhotoPreview('');
     reset();
+  };
+
+  const handlePhotoSelect = (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setApiError('Profile photos must be JPG or PNG images.');
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setApiError('Profile photos must be 2 MB or smaller.');
+      return;
+    }
+    setApiError(null);
+    setProfilePhoto(file);
+    if (photoPreview) URL.revokeObjectURL(photoPreview);
+    setPhotoPreview(URL.createObjectURL(file));
   };
 
   const fieldClass = (hasError) =>
@@ -105,13 +139,15 @@ export const LoginScreen = ({ onLoginSuccess }) => {
     ? `Try again in ${remainingSeconds}s`
     : isLogin
     ? 'Sign in'
+    : signupStep === 1
+    ? 'Continue'
     : 'Create my space';
 
   return (
     <div className="flex min-h-dvh w-full select-none items-center justify-center bg-surface p-0 sm:p-6">
       <div className="flex h-dvh w-full flex-col overflow-y-auto border-0 bg-surface-container-lowest shadow-2xl shadow-black/5 sm:h-auto sm:max-w-5xl sm:flex-row sm:overflow-hidden sm:rounded-[28px] sm:border sm:border-outline-variant/60 md:min-h-[620px]">
         {/* Brand panel */}
-        <div className="relative shrink-0 overflow-hidden bg-primary px-7 py-8 text-white sm:w-[44%] sm:px-10 sm:py-11 lg:px-12">
+        <div className="auth-brand relative shrink-0 overflow-hidden bg-primary px-7 py-8 text-white sm:w-[44%] sm:px-10 sm:py-11 lg:px-12">
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.28),transparent_55%)]"
@@ -168,7 +204,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
         {/* Form panel */}
         <div className="flex flex-1 flex-col justify-center px-6 py-8 sm:overflow-y-auto sm:px-10 sm:py-11 lg:px-14">
           <div className="mx-auto w-full max-w-sm">
-            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-surface-container p-1">
+            <div className="auth-mode-toggle grid grid-cols-2 gap-1 rounded-2xl bg-surface-container p-1">
               <button
                 type="button"
                 onClick={() => switchMode('login')}
@@ -195,7 +231,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
 
             <div className="mt-7">
               <h2 className="font-display text-2xl font-bold tracking-[-0.02em] text-on-surface sm:text-[1.75rem]">
-                {isLogin ? 'Welcome back' : 'Nice to meet you'}
+                {isLogin ? 'Welcome back' : isProfileStep ? 'Make it yours' : 'Nice to meet you'}
               </h2>
               <p className="mt-1.5 text-sm text-on-surface-variant">
                 {isLogin
@@ -219,7 +255,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
               className="mt-6 space-y-4"
               noValidate
             >
-              {!isLogin && (
+              {!isLogin && isProfileStep && (
                 <div>
                   <label
                     htmlFor="name"
@@ -248,7 +284,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                 </div>
               )}
 
-              <div>
+              {(!isProfileStep || isLogin) && <div>
                 <label
                   htmlFor="email"
                   className="mb-1.5 block text-xs font-semibold text-on-surface-variant"
@@ -277,9 +313,9 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                     {errors.email.message}
                   </p>
                 )}
-              </div>
+              </div>}
 
-              <div>
+              {(!isProfileStep || isLogin) && <div>
                 <label
                   htmlFor="password"
                   className="mb-1.5 block text-xs font-semibold text-on-surface-variant"
@@ -323,12 +359,40 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                     {errors.password.message}
                   </p>
                 )}
-              </div>
+              </div>}
+
+              {isProfileStep && (
+                <>
+                  <div>
+                    <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
+                      Profile photo <span className="font-normal text-outline">(optional)</span>
+                    </label>
+                    <input id="signup-photo" type="file" accept="image/jpeg,image/png" onChange={handlePhotoSelect} className="sr-only" />
+                    <label htmlFor="signup-photo" className="flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-outline-variant/70 bg-surface-container-lowest p-3 transition-colors hover:border-primary">
+                      {photoPreview ? (
+                        <Image src={photoPreview} alt="Profile preview" width={52} height={52} unoptimized className="h-[52px] w-[52px] rounded-full object-cover" />
+                      ) : (
+                        <span className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-secondary-container text-primary"><Camera className="h-5 w-5" /></span>
+                      )}
+                      <span className="text-xs text-on-surface-variant">Choose a JPG or PNG, up to 2 MB</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label htmlFor="statusMessage" className="mb-1.5 block text-xs font-semibold text-on-surface-variant">
+                      Bio <span className="font-normal text-outline">(optional)</span>
+                    </label>
+                    <input id="statusMessage" type="text" maxLength={160} {...register('statusMessage')} placeholder="A little line about you" className={`${fieldClass(false)} pl-4 pr-4`} />
+                  </div>
+                  <button type="button" onClick={() => { setSignupStep(1); setApiError(null); }} className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary hover:underline">
+                    <ArrowLeft className="h-3.5 w-3.5" /> Back
+                  </button>
+                </>
+              )}
 
               <button
                 type="submit"
                 disabled={loading || isCoolingDown}
-                className="group flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-sm font-semibold text-white shadow-lg shadow-primary/20 transition-all hover:bg-primary-container active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+                className="auth-submit group flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-sm font-semibold text-on-primary shadow-lg shadow-primary/20 transition-all hover:bg-primary-container active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
