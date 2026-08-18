@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Search, X, MessageSquare, User } from 'lucide-react';
-import { getInitials, isRealAvatar } from '../utils/avatarUtils';
+import { getCloudinaryThumbnail, getInitials, isRealAvatar } from '../utils/avatarUtils';
 
 export const SearchModal = ({
   isOpen,
@@ -14,17 +14,25 @@ export const SearchModal = ({
 }) => {
   const [query, setQuery] = useState('');
 
+  const matchedContacts = useMemo(() => {
+    const normalizedQuery = query.toLowerCase();
+    return contacts.filter(
+      (contact) =>
+        contact.name.toLowerCase().includes(normalizedQuery) ||
+        contact.email.toLowerCase().includes(normalizedQuery)
+    );
+  }, [contacts, query]);
+
+  const matchedConversations = useMemo(() => {
+    const normalizedQuery = query.toLowerCase();
+    return conversations.filter(
+      (conversation) =>
+        conversation.contact?.name.toLowerCase().includes(normalizedQuery) ||
+        conversation.lastMessage.toLowerCase().includes(normalizedQuery)
+    );
+  }, [conversations, query]);
+
   if (!isOpen) return null;
-
-  const matchedContacts = contacts.filter((c) =>
-    c.name.toLowerCase().includes(query.toLowerCase()) ||
-    c.email.toLowerCase().includes(query.toLowerCase())
-  );
-
-  const matchedConversations = conversations.filter((conv) =>
-    conv.contact?.name.toLowerCase().includes(query.toLowerCase()) ||
-    conv.lastMessage.toLowerCase().includes(query.toLowerCase())
-  );
 
   return (
     <div className="fixed inset-0 z-50 flex select-none items-start justify-center bg-black/50 p-3 pt-[calc(1rem+env(safe-area-inset-top))] sm:p-4 sm:pt-20">
@@ -76,7 +84,7 @@ export const SearchModal = ({
                         <div className="flex items-center gap-3">
                           {isRealAvatar(c.avatar) ? (
                             <Image
-                              src={c.avatar}
+                              src={getCloudinaryThumbnail(c.avatar, 64)}
                               alt={c.name}
                               width={32}
                               height={32}

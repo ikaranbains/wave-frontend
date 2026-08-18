@@ -1,10 +1,11 @@
-/* Wave service worker — app shell caching, offline outbox flush, web push. */
+/* Wave service worker — app shell caching, offline outbox flush, FCM push. */
 
-const SW_VERSION = 'v4';
+const SW_VERSION = 'v10';
 const SHELL_CACHE = `pingme-shell-${SW_VERSION}`;
 const ASSET_CACHE = `pingme-assets-${SW_VERSION}`;
 const OFFLINE_URL = '/offline';
 const OUTBOX_SYNC_TAG = 'pingme-outbox';
+const OUTBOX_BATCH_SIZE = 10;
 
 // Install blocks until every entry here is fetched, so this stays to what is
 // genuinely needed offline. The 512 icon and the apple touch icon are only read
@@ -76,41 +77,67 @@ async function flushOutbox() {
   const queued = await readOutbox();
   if (queued.length === 0) return { sent: 0, remaining: 0 };
 
-  let sent = 0;
-  let remaining = 0;
+  const sorted = queued.sort((a, b) => a.createdAt - b.createdAt);
+  const batches = [];
+  for (let index = 0; index < sorted.length; index += OUTBOX_BATCH_SIZE) {
+    batches.push(sorted.slice(index, index + OUTBOX_BATCH_SIZE));
+  }
 
-  for (const entry of queued.sort((a, b) => a.createdAt - b.createdAt)) {
-    try {
-      const response = await fetch(`${entry.apiBaseUrl}/messages`, {
+  const requests = await Promise.allSettled(
+    batches.map(async (batch) => {
+      const response = await fetch(`${batch[0].apiBaseUrl}/messages/batch`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
-          clientId: entry.clientId,
-          conversationId: entry.conversationId,
-          text: entry.text,
-          attachment: entry.attachment,
-          replyTo: entry.replyTo,
+          messages: batch.map((entry) => ({
+            clientId: entry.clientId,
+            conversationId: entry.conversationId,
+            text: entry.text,
+            attachment: entry.attachment,
+            replyTo: entry.replyTo,
+          })),
         }),
       });
 
-      if (response.ok) {
-        await deleteFromOutbox(entry.clientId);
-        sent += 1;
-        continue;
-      }
+      if (!response.ok) throw new Error(`Batch request failed with ${response.status}`);
+      return { batch, results: (await response.json()).results || [] };
+    })
+  );
 
-      // 4xx other than auth means the server will never accept it — stop retrying.
-      if (response.status >= 400 && response.status < 500 && response.status !== 401) {
-        await deleteFromOutbox(entry.clientId);
-        continue;
-      }
+  const outcomes = requests.flatMap((request, index) => {
+    const batch = batches[index];
+    if (request.status === 'rejected') return batch.map(() => ({ remaining: 1 }));
 
-      remaining += 1;
-    } catch {
-      remaining += 1;
-    }
-  }
+    const resultsByClientId = new Map(
+      request.value.results.map((result) => [result.clientId, result])
+    );
+    return batch.map((entry) => {
+      const result = resultsByClientId.get(entry.clientId);
+      if (result?.ok) return { clientId: entry.clientId, sent: 1 };
+      if (result?.status >= 400 && result.status < 500 && result.status !== 401) {
+        return { clientId: entry.clientId };
+      }
+      return { remaining: 1 };
+    });
+  });
+
+  const removals = await Promise.allSettled(
+    outcomes.map(async (outcome) => {
+      if (!outcome.clientId) return outcome;
+      await deleteFromOutbox(outcome.clientId);
+      return outcome;
+    })
+  );
+  const sent = removals.reduce(
+    (count, result) => count + (result.status === 'fulfilled' ? result.value.sent || 0 : 0),
+    0
+  );
+  const remaining = removals.reduce(
+    (count, result) =>
+      count + (result.status === 'rejected' ? 1 : result.value.remaining || 0),
+    0
+  );
 
   await broadcastToClients({ type: 'PINGME_OUTBOX_FLUSHED', sent, remaining });
 
@@ -125,21 +152,44 @@ async function flushOutbox() {
 /* Lifecycle                                                          */
 /* ------------------------------------------------------------------ */
 
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) =>
-      // Cache entries individually so one 404 cannot abort the whole install.
-      Promise.allSettled(SHELL_ASSETS.map((asset) => cache.add(new Request(asset, { cache: 'reload' }))))
-    )
+function findShellFontUrls(html) {
+  return [
+    ...html.matchAll(/href=["'](\/_next\/static\/media\/[^"']+\.(?:woff2?|ttf|otf))["']/gi),
+  ].map((match) => match[1]);
+}
+
+async function precacheAppShell() {
+  const shellCache = await caches.open(SHELL_CACHE);
+
+  // Cache entries individually so one 404 cannot abort the whole install.
+  await Promise.allSettled(
+    SHELL_ASSETS.map((asset) => shellCache.add(new Request(asset, { cache: 'reload' })))
   );
+
+  // next/font filenames are content-hashed per build. Discover their preload
+  // URLs from the shell instead of hardcoding them, then keep them cache-first.
+  const shell = await shellCache.match('/');
+  if (!shell) return;
+
+  const fontUrls = [...new Set(findShellFontUrls(await shell.text()))];
+  if (fontUrls.length === 0) return;
+
+  const assetCache = await caches.open(ASSET_CACHE);
+  await Promise.allSettled(
+    fontUrls.map((url) => assetCache.add(new Request(url, { cache: 'reload' })))
+  );
+}
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(precacheAppShell());
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      if (self.registration.navigationPreload) {
-        await self.registration.navigationPreload.enable().catch(() => {});
-      }
+      // Cache-first navigation does not consume preload responses. Disable any
+      // preload setting left by an older worker so launches do not waste a request.
+      await self.registration.navigationPreload?.disable().catch(() => {});
       const keys = await caches.keys();
       await Promise.all(
         keys
@@ -180,22 +230,24 @@ function isStaticAsset(url) {
   );
 }
 
-async function handleNavigation(event) {
-  try {
-    const preloaded = await event.preloadResponse;
-    if (preloaded) return preloaded;
+function isImmutableAsset(url) {
+  // Next.js content-hashes everything here, including generated font files.
+  return url.pathname.startsWith('/_next/static/');
+}
 
+async function handleNavigation(event) {
+  const cache = await caches.open(SHELL_CACHE);
+  const cachedShell = await cache.match('/');
+  if (cachedShell) return cachedShell;
+
+  try {
     const networkResponse = await fetch(event.request);
     if (networkResponse.ok) {
-      const cache = await caches.open(SHELL_CACHE);
       cache.put('/', networkResponse.clone()).catch(() => {});
     }
     return networkResponse;
   } catch {
-    const cache = await caches.open(SHELL_CACHE);
     return (
-      (await cache.match(event.request, { ignoreSearch: true })) ||
-      (await cache.match('/')) ||
       (await cache.match(OFFLINE_URL)) ||
       new Response('You are offline.', {
         status: 503,
@@ -205,9 +257,10 @@ async function handleNavigation(event) {
   }
 }
 
-async function handleStaticAsset(request) {
+async function handleStaticAsset(request, immutable) {
   const cache = await caches.open(ASSET_CACHE);
   const cached = await cache.match(request);
+  if (cached && immutable) return cached;
 
   const networkFetch = fetch(request)
     .then((response) => {
@@ -242,13 +295,38 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isStaticAsset(url)) {
-    event.respondWith(handleStaticAsset(request));
+    event.respondWith(handleStaticAsset(request, isImmutableAsset(url)));
   }
 });
 
 /* ------------------------------------------------------------------ */
 /* Web push                                                           */
 /* ------------------------------------------------------------------ */
+
+/**
+ * FCM wraps the payload as `{ notification, data, fcmOptions }` rather than the flat
+ * `{ title, body, icon, ... }` shape web-push used. Read both so an old queued push
+ * and a new FCM one both render.
+ */
+function normalizePushPayload(payload) {
+  const notification = payload.notification || {};
+  const data = payload.data || {};
+
+  return {
+    title: notification.title || payload.title || 'Wave',
+    body: notification.body || payload.body || 'You have a new message',
+    icon: notification.icon || payload.icon || '/wave-192.png',
+    badge: notification.badge || payload.badge || '/wave-192.png',
+    tag: notification.tag || payload.tag || 'pingme-message',
+    // FCM serializes every data value to a string, so compare as one.
+    requireInteraction:
+      String(notification.requireInteraction ?? payload.requireInteraction) === 'true',
+    url: data.url || payload.fcmOptions?.link || notification.click_action || '/',
+    conversationId: data.conversationId,
+    callId: data.callId,
+    kind: data.kind || 'message',
+  };
+}
 
 self.addEventListener('push', (event) => {
   if (!event.data) return;
@@ -260,7 +338,7 @@ self.addEventListener('push', (event) => {
     payload = { title: 'Wave', body: event.data.text() };
   }
 
-  const conversationId = payload.data?.conversationId;
+  const push = normalizePushPayload(payload);
 
   event.waitUntil(
     (async () => {
@@ -268,21 +346,25 @@ self.addEventListener('push', (event) => {
       const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
       if (clientList.some((client) => client.visibilityState === 'visible' && client.focused)) {
         clientList.forEach((client) =>
-          client.postMessage({ type: 'PINGME_PUSH_RECEIVED', payload })
+          client.postMessage({ type: 'PINGME_PUSH_RECEIVED', payload: push })
         );
         return;
       }
 
-      await self.registration.showNotification(payload.title || 'Wave', {
-        body: payload.body || 'You have a new message',
-        icon: payload.icon || '/wave-192.png',
-        badge: payload.badge || '/wave-192.png',
-        tag: payload.tag || 'pingme-message',
+      await self.registration.showNotification(push.title, {
+        body: push.body,
+        icon: push.icon,
+        badge: push.badge,
+        tag: push.tag,
         renotify: true,
-        vibrate: [80, 40, 80],
+        // A ringing call should stay up until it is answered or it times out.
+        requireInteraction: push.requireInteraction,
+        vibrate: push.kind === 'call' ? [200, 100, 200, 100, 200] : [80, 40, 80],
         data: {
-          url: payload.data?.url || '/',
-          conversationId,
+          url: push.url,
+          conversationId: push.conversationId,
+          callId: push.callId,
+          kind: push.kind,
         },
       });
     })()

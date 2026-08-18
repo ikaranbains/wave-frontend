@@ -1,7 +1,16 @@
 'use client';
 
-import React, { memo, useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, {
+  memo,
+  useState,
+  useRef,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useCallback,
+} from 'react';
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 import {
   ArrowLeft,
   Phone,
@@ -9,6 +18,7 @@ import {
   Info,
   Send,
   Smile,
+  Check,
   CheckCheck,
   Download,
   X,
@@ -26,9 +36,23 @@ import {
   Trash2,
   Ban,
 } from 'lucide-react';
-import { EmojiPicker } from './EmojiPicker';
-import { getInitials, isRealAvatar } from '../utils/avatarUtils';
+import {
+  getCloudinaryMicroPreview,
+  getCloudinaryThumbnail,
+  getInitials,
+  isRealAvatar,
+} from '../utils/avatarUtils';
 import { describeCallEvent, formatLastSeen } from '../utils/chatFormatters';
+import { compressImage, shouldCompressImage } from '../utils/imageCompression.mjs';
+import {
+  formatMessageDateLabel,
+  getMessageDateKey,
+} from '../utils/messageDateGroups.mjs';
+
+const EmojiPicker = dynamic(
+  () => import('./EmojiPicker').then((module) => module.EmojiPicker),
+  { ssr: false }
+);
 
 // Messages that are nothing but emoji get rendered large, the way every other
 // messenger does it — at body size a lone reaction reads as a typo.
@@ -69,7 +93,7 @@ function emojiOnlyScale(text) {
  * rather than sided like a bubble — it is a record of something that happened,
  * not something either person said.
  */
-function CallLogEntry({ message }) {
+const CallLogEntry = memo(function CallLogEntry({ message }) {
   const isOutgoing = message.isSentByMe;
   const { label, detail, missed } = describeCallEvent(message.callEvent, isOutgoing);
   const isVideo = message.callEvent?.type === 'video';
@@ -99,12 +123,296 @@ function CallLogEntry({ message }) {
       </div>
     </div>
   );
-}
+});
+
+const MessageItem = memo(function MessageItem({
+  message: msg,
+  isMenuOpen,
+  menuRef,
+  onToggleMenu,
+  onReply,
+  onDownload,
+  onDelete,
+  onPreview,
+  onRetry,
+  onCloseMenu,
+}) {
+  const microPreview = getCloudinaryMicroPreview(msg.attachment?.url);
+
+  return (
+    <div
+      className={`group/msg flex items-start gap-1.5 max-w-[85%] sm:max-w-[75%] ${
+        msg.isSentByMe ? 'self-end flex-row-reverse' : 'self-start flex-row'
+      }`}
+    >
+      <div className="flex flex-col min-w-0">
+        <div
+          className={`p-1.5 rounded-2xl text-xs leading-relaxed shadow-xs relative ${
+            msg.isDeleted
+              ? 'bg-surface-container-low text-outline italic rounded-2xl border border-outline-variant/40'
+              : msg.isSentByMe
+                ? 'bg-primary text-white rounded-tr-xs'
+                : 'bg-surface-container-low text-on-surface rounded-tl-xs border border-surface-container-highest/60'
+          }`}
+        >
+          {msg.isDeleted ? (
+            <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs italic opacity-80">
+              <Ban className="w-3.5 h-3.5 flex-shrink-0 opacity-75" />
+              <span>This message was deleted</span>
+            </div>
+          ) : (
+            <>
+              {Boolean(
+                msg.replyTo &&
+                  (msg.replyTo.id ||
+                    msg.replyTo.senderName ||
+                    msg.replyTo.text ||
+                    msg.replyTo.attachmentUrl)
+              ) && (
+                <div
+                  className={`mb-1 flex items-stretch gap-2 overflow-hidden rounded-lg ${
+                    msg.isSentByMe ? 'bg-black/20' : 'bg-primary/8'
+                  }`}
+                >
+                  <span
+                    className={`w-[3px] flex-shrink-0 rounded-full ${
+                      msg.isSentByMe ? 'bg-white' : 'bg-primary'
+                    }`}
+                  />
+                  <div className="min-w-0 flex-1 py-1.5 pr-1">
+                    <span
+                      className={`block truncate text-[11px] font-semibold leading-tight ${
+                        msg.isSentByMe ? 'text-white' : 'text-primary'
+                      }`}
+                    >
+                      {msg.replyTo.senderName || 'Replied message'}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] leading-tight opacity-80">
+                      {msg.replyTo.text ||
+                        (msg.replyTo.attachmentName
+                          ? `[${(msg.replyTo.attachmentType || 'File').toUpperCase()}] ${msg.replyTo.attachmentName}`
+                          : 'Attachment')}
+                    </span>
+                  </div>
+                  {msg.replyTo.attachmentUrl &&
+                    msg.replyTo.attachmentType === 'image' && (
+                      <Image
+                        src={getCloudinaryThumbnail(msg.replyTo.attachmentUrl, 88)}
+                        alt="Replying photo thumbnail"
+                        width={44}
+                        height={44}
+                        className="h-11 w-11 flex-shrink-0 object-cover"
+                      />
+                    )}
+                </div>
+              )}
+
+              <div className="px-2 pb-1 pt-0.5">
+                {msg.text && (
+                  <p
+                    className={`whitespace-pre-wrap break-words ${
+                      emojiOnlyScale(msg.text) || ''
+                    }`}
+                  >
+                    {msg.text}
+                  </p>
+                )}
+
+                {msg.attachment && (
+                  <div className={msg.text ? 'mt-2' : ''}>
+                    {msg.attachment.type === 'image' ? (
+                      <div
+                        className="relative group/img rounded-lg overflow-hidden border border-white/20 min-h-70 max-h-70 bg-cover bg-center"
+                        style={{
+                          backgroundImage: microPreview ? `url("${microPreview}")` : undefined,
+                        }}
+                      >
+                        <Image
+                          src={getCloudinaryThumbnail(msg.attachment.url, 448, 560, 'limit')}
+                          alt={msg.attachment.name || 'Attachment'}
+                          width={224}
+                          height={144}
+                          onClick={() => onPreview(msg.attachment?.url || null)}
+                          className="w-full h-full object-contain object-top cursor-pointer hover:scale-105 transition-transform"
+                        />
+                      </div>
+                    ) : msg.attachment.type === 'video' ? (
+                      <video
+                        src={msg.attachment.url}
+                        controls
+                        preload="metadata"
+                        className="max-h-64 w-64 rounded-lg bg-black"
+                      >
+                        Your browser does not support video playback.
+                      </video>
+                    ) : msg.attachment.type === 'audio' ? (
+                      <div className="min-w-64 rounded-xl bg-black/10 p-2">
+                        <div className="mb-1.5 flex items-center gap-2">
+                          <Headphones className="h-4 w-4 flex-shrink-0" />
+                          <span className="max-w-48 truncate text-[11px]">
+                            {msg.attachment.name || 'Audio'}
+                          </span>
+                        </div>
+                        <audio
+                          src={msg.attachment.url}
+                          controls
+                          preload="metadata"
+                          className="h-9 w-full"
+                        >
+                          Your browser does not support audio playback.
+                        </audio>
+                      </div>
+                    ) : (
+                      <a
+                        href={msg.attachment.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        download={msg.attachment.name}
+                        className="flex min-w-56 items-center gap-2 rounded-lg bg-black/10 p-2 text-xs transition-colors hover:bg-black/15"
+                      >
+                        <FileText className="w-4 h-4 flex-shrink-0" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{msg.attachment.name}</span>
+                          {msg.attachment.size && (
+                            <span className="block text-[10px] opacity-75">
+                              {msg.attachment.size}
+                            </span>
+                          )}
+                        </span>
+                        <Download className="w-3.5 h-3.5 ml-auto cursor-pointer" />
+                      </a>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div
+          className={`flex items-center gap-1 mt-1 text-[10px] text-outline ${
+            msg.isSentByMe ? 'self-end mr-1' : 'self-start ml-1'
+          }`}
+        >
+          <span>{msg.time}</span>
+          {msg.isSentByMe && msg.status === 'sending' && (
+            <LoaderCircle className="h-3 w-3 animate-spin text-outline" />
+          )}
+          {msg.isSentByMe && msg.status === 'queued' && (
+            <span
+              title="Waiting for a connection — this sends automatically"
+              className="inline-flex items-center gap-1 font-medium text-amber-600"
+            >
+              <Clock3 className="h-3 w-3" />
+              Queued
+            </span>
+          )}
+          {msg.isSentByMe && msg.status === 'failed' && (
+            <button
+              type="button"
+              onClick={() => onRetry?.(msg)}
+              title={msg.error || 'Message was not delivered'}
+              className="inline-flex items-center gap-1 font-semibold text-red-600 hover:text-red-700"
+              aria-label="Retry sending message"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Failed · Retry
+            </button>
+          )}
+          {msg.isSentByMe && msg.status === 'sent' && (
+            <Check className="h-3.5 w-3.5" aria-label="Sent" title="Sent" />
+          )}
+          {msg.isSentByMe && msg.status === 'delivered' && (
+            <CheckCheck className="h-3.5 w-3.5" aria-label="Delivered" title="Delivered" />
+          )}
+          {msg.isSentByMe && msg.status === 'read' && (
+            <CheckCheck
+              className="h-3.5 w-3.5 text-blue-500"
+              aria-label="Read"
+              title="Read"
+            />
+          )}
+        </div>
+      </div>
+
+      {!msg.isDeleted && (
+        <div className="relative self-center opacity-70 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100">
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleMenu(msg.id);
+            }}
+            className="p-1.5 rounded-full text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
+            title="Message options"
+            aria-label="Message options"
+          >
+            <MoreVertical className="w-4 h-4" />
+          </button>
+
+          {isMenuOpen && (
+            <div
+              ref={menuRef}
+              className={`absolute z-50 bottom-full mb-1 w-44 rounded-2xl border border-outline-variant/60 bg-white p-1.5 shadow-2xl ${
+                msg.isSentByMe ? 'right-0' : 'left-0'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => onReply(msg)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-on-surface rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer"
+              >
+                <Reply className="w-4 h-4 text-primary" />
+                <span>Reply</span>
+              </button>
+
+              {msg.attachment && (
+                <button
+                  type="button"
+                  onClick={() => onDownload(msg.attachment)}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-on-surface rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer"
+                >
+                  <Download className="w-4 h-4 text-emerald-600" />
+                  <span>Download file</span>
+                </button>
+              )}
+
+              {msg.text && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(msg.text);
+                    onCloseMenu();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-on-surface rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer"
+                >
+                  <Copy className="w-4 h-4 text-outline" />
+                  <span>Copy text</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => onDelete(msg)}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-red-600 rounded-xl hover:bg-red-50 transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 text-red-500" />
+                <span>Delete message</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+});
 
 export const ChatArea = memo(function ChatArea({
   conversation,
   messages = [],
   isLoading = false,
+  isLoadingOlderMessages = false,
+  hasMoreMessages = false,
   isContactTyping = false,
   onSendMessage,
   onRetryMessage,
@@ -113,11 +421,13 @@ export const ChatArea = memo(function ChatArea({
   onBack,
   onTypingStart,
   onTypingStop,
+  onLoadOlderMessages,
 }) {
   const [inputText, setInputText] = useState('');
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [isAttachmentMenuOpen, setIsAttachmentMenuOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [uploadInHd, setUploadInHd] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [sendError, setSendError] = useState('');
@@ -135,11 +445,18 @@ export const ChatArea = memo(function ChatArea({
   const audioInputRef = useRef(null);
   const messagesEndRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const messageListRef = useRef(null);
+  const loadOlderSentinelRef = useRef(null);
+  const hasPositionedRef = useRef(false);
+  // scrollHeight captured just before an older page is requested, so the viewport can
+  // be re-anchored on whatever the reader was looking at once it prepends.
+  const restoreScrollFromRef = useRef(null);
 
   const selectedFilePreview = useMemo(
     () => (selectedFile?.type.startsWith('image/') ? URL.createObjectURL(selectedFile) : null),
     [selectedFile]
   );
+  const canCompressSelectedImage = shouldCompressImage(selectedFile);
   const sharedImages = useMemo(
     () =>
       messages
@@ -155,9 +472,63 @@ export const ChatArea = memo(function ChatArea({
     [selectedFilePreview]
   );
 
+  const lastMessageId = messages.length > 0 ? messages[messages.length - 1].id : null;
+
+  // Keyed to the newest message rather than the array: prepending an older page
+  // changes the array identity, and scrolling to the bottom there would throw the
+  // reader back out of the history they just loaded.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!lastMessageId) return;
+    // Opening a thread jumps straight to the bottom; only later arrivals animate.
+    // A smooth animation here would also leave the sentinel below on screen long
+    // enough to ask for a page the reader never scrolled to.
+    messagesEndRef.current?.scrollIntoView({
+      behavior: hasPositionedRef.current ? 'smooth' : 'auto',
+    });
+    hasPositionedRef.current = true;
+  }, [lastMessageId]);
+
+  // Runs before paint so the restored offset is never visible as a jump.
+  useLayoutEffect(() => {
+    const container = messageListRef.current;
+    const previousHeight = restoreScrollFromRef.current;
+    if (!container || previousHeight === null) return;
+
+    restoreScrollFromRef.current = null;
+    container.scrollTop += container.scrollHeight - previousHeight;
   }, [messages]);
+
+  const handleLoadOlderMessages = useCallback(() => {
+    const container = messageListRef.current;
+    restoreScrollFromRef.current = container ? container.scrollHeight : null;
+    onLoadOlderMessages?.();
+  }, [onLoadOlderMessages]);
+
+  // Load the next page when the top of the thread comes into view. Re-created when
+  // isLoadingOlderMessages flips, which detaches the observer for the duration of a
+  // fetch so one sentinel crossing cannot queue several pages, then re-attaches and
+  // re-checks visibility — that is what keeps filling a viewport taller than a page.
+  //
+  // ponytail: on a thread short enough that the sentinel is still visible right after
+  // the initial jump, this fetches one extra page. Bounded at one, since restoring the
+  // scroll offset moves the sentinel back out of view.
+  useEffect(() => {
+    const sentinel = loadOlderSentinelRef.current;
+    const container = messageListRef.current;
+    if (!sentinel || !container) return undefined;
+    if (!hasMoreMessages || isLoadingOlderMessages) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) handleLoadOlderMessages();
+      },
+      // Start fetching before the reader actually reaches the top of the thread.
+      { root: container, rootMargin: '200px 0px 0px 0px' }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMoreMessages, isLoadingOlderMessages, handleLoadOlderMessages]);
 
   useEffect(() => {
     const handlePointerDown = (event) => {
@@ -272,9 +643,11 @@ export const ChatArea = memo(function ChatArea({
       : undefined;
 
     try {
-      await onSendMessage(normalizedText, selectedFile, setUploadProgress, replyData);
+      const fileToUpload = uploadInHd ? selectedFile : await compressImage(selectedFile);
+      await onSendMessage(normalizedText, fileToUpload, setUploadProgress, replyData);
       setInputText('');
       setSelectedFile(null);
+      setUploadInHd(false);
       setReplyingToMessage(null);
       setIsEmojiPickerOpen(false);
       setIsAttachmentMenuOpen(false);
@@ -290,7 +663,7 @@ export const ChatArea = memo(function ChatArea({
     }
   };
 
-  const handleDownloadAttachment = async (attachment) => {
+  const handleDownloadAttachment = useCallback(async (attachment) => {
     if (!attachment?.url) return;
     try {
       const response = await fetch(attachment.url);
@@ -306,7 +679,32 @@ export const ChatArea = memo(function ChatArea({
     } catch {
       window.open(attachment.url, '_blank');
     }
-  };
+  }, []);
+
+  const closeMessageMenu = useCallback(() => setActiveMenuMessageId(null), []);
+  const toggleMessageMenu = useCallback((messageId) => {
+    setActiveMenuMessageId((currentId) => (currentId === messageId ? null : messageId));
+  }, []);
+  const replyToMessage = useCallback((message) => {
+    setReplyingToMessage(message);
+    setActiveMenuMessageId(null);
+    inputRef.current?.focus();
+  }, []);
+  const downloadMessageAttachment = useCallback(
+    (attachment) => {
+      handleDownloadAttachment(attachment);
+      setActiveMenuMessageId(null);
+    },
+    [handleDownloadAttachment]
+  );
+  const deleteMessage = useCallback(
+    (message) => {
+      onDeleteMessage?.(message);
+      setActiveMenuMessageId(null);
+    },
+    [onDeleteMessage]
+  );
+  const previewMessageImage = useCallback((url) => setPreviewImage(url), []);
 
   const handleEmojiSelect = (emoji) => {
     const input = inputRef.current;
@@ -334,6 +732,7 @@ export const ChatArea = memo(function ChatArea({
     }
 
     setSelectedFile(file);
+    setUploadInHd(false);
     setSendError('');
     setIsAttachmentMenuOpen(false);
     inputRef.current?.focus();
@@ -376,38 +775,46 @@ export const ChatArea = memo(function ChatArea({
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="relative flex-shrink-0">
-              {isRealAvatar(conversation.contact?.avatar) ? (
-                <Image
-                  src={conversation.contact.avatar}
-                  alt={conversation.contact?.name || 'Contact'}
-                  width={40}
-                  height={40}
-                  className="h-10 w-10 rounded-full object-cover"
-                />
-              ) : (
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary-container font-bold text-sm text-primary select-none">
-                  {getInitials(conversation.contact?.name)}
-                </span>
-              )}
-              {conversation.isOnline && (
-                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-on-surface truncate">
-                {conversation.contact?.name}
-              </h2>
-              {conversation.isOnline ? (
-                <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full" /> Online
-                </span>
-              ) : (
-                <span className="text-[11px] text-outline">
-                  {formatLastSeen(conversation.contact?.lastSeen)}
-                </span>
-              )}
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowInfoDrawer(true)}
+              aria-label={`Open ${conversation.contact?.name || 'contact'} profile`}
+              aria-expanded={showInfoDrawer}
+              className="flex min-w-0 items-center gap-2 rounded-xl text-left transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-primary sm:gap-3"
+            >
+              <div className="relative flex-shrink-0">
+                {isRealAvatar(conversation.contact?.avatar) ? (
+                  <Image
+                    src={getCloudinaryThumbnail(conversation.contact.avatar, 80)}
+                    alt={conversation.contact?.name || 'Contact'}
+                    width={40}
+                    height={40}
+                    className="h-10 w-10 rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary-container font-bold text-sm text-primary select-none">
+                    {getInitials(conversation.contact?.name)}
+                  </span>
+                )}
+                {conversation.isOnline && (
+                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <h2 className="truncate text-sm font-semibold text-on-surface">
+                  {conversation.contact?.name}
+                </h2>
+                {conversation.isOnline ? (
+                  <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" /> Online
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-outline">
+                    {formatLastSeen(conversation.contact?.lastSeen)}
+                  </span>
+                )}
+              </div>
+            </button>
           </div>
 
           <div className="flex items-center gap-1">
@@ -442,7 +849,25 @@ export const ChatArea = memo(function ChatArea({
         </header>
 
         {/* Scrollable Message History Area */}
-        <div className="scroll-touch flex flex-1 flex-col gap-4 overflow-y-auto p-3 sm:p-6">
+        <div
+          ref={messageListRef}
+          className="scroll-touch flex flex-1 flex-col gap-4 overflow-y-auto p-3 sm:p-6"
+        >
+          {/* Crossing this marks the top of the loaded history and pulls the next page. */}
+          {!isLoading && hasMoreMessages && (
+            <div ref={loadOlderSentinelRef} className="flex-shrink-0" aria-hidden="true" />
+          )}
+
+          {isLoadingOlderMessages && (
+            <div
+              role="status"
+              className="mx-auto flex flex-shrink-0 items-center gap-1.5 text-[11px] text-outline"
+            >
+              <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+              Loading older messages…
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex flex-1 items-center justify-center gap-2 text-xs text-outline">
               <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -457,275 +882,40 @@ export const ChatArea = memo(function ChatArea({
                 </p>
               </div>
             </div>
-          ) : messages.map((msg) => (
-            msg.callEvent ? (
-              <CallLogEntry key={msg.id} message={msg} />
-            ) : (
-            <div
-              key={msg.id}
-              className={`group/msg flex items-start gap-1.5 max-w-[85%] sm:max-w-[75%] ${
-                msg.isSentByMe ? 'self-end flex-row-reverse' : 'self-start flex-row'
-              }`}
-            >
-              <div className="flex flex-col min-w-0">
-                <div
-                  className={`p-1.5 rounded-2xl text-xs leading-relaxed shadow-xs relative ${
-                    msg.isDeleted
-                      ? 'bg-surface-container-low text-outline italic rounded-2xl border border-outline-variant/40'
-                      : msg.isSentByMe
-                      ? 'bg-primary text-white rounded-tr-xs'
-                      : 'bg-surface-container-low text-on-surface rounded-tl-xs border border-surface-container-highest/60'
-                  }`}
-                >
-                  {msg.isDeleted ? (
-                    <div className="flex items-center gap-1.5 px-2 py-1.5 text-xs italic opacity-80">
-                      <Ban className="w-3.5 h-3.5 flex-shrink-0 opacity-75" />
-                      <span>This message was deleted</span>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Quoted reply block (nested inside bubble, WhatsApp style) */}
-                      {Boolean(msg.replyTo && (msg.replyTo.id || msg.replyTo.senderName || msg.replyTo.text || msg.replyTo.attachmentUrl)) && (
-                        <div
-                          className={`mb-1 flex items-stretch gap-2 overflow-hidden rounded-lg ${
-                            msg.isSentByMe ? 'bg-black/20' : 'bg-primary/8'
-                          }`}
-                        >
-                          <span
-                            className={`w-[3px] flex-shrink-0 rounded-full ${
-                              msg.isSentByMe ? 'bg-white' : 'bg-primary'
-                            }`}
-                          />
-                          <div className="min-w-0 flex-1 py-1.5 pr-1">
-                            <span
-                              className={`block truncate text-[11px] font-semibold leading-tight ${
-                                msg.isSentByMe ? 'text-white' : 'text-primary'
-                              }`}
-                            >
-                              {msg.replyTo.senderName || 'Replied message'}
-                            </span>
-                            <span className="mt-0.5 block truncate text-[11px] leading-tight opacity-80">
-                              {msg.replyTo.text ||
-                                (msg.replyTo.attachmentName
-                                  ? `[${(msg.replyTo.attachmentType || 'File').toUpperCase()}] ${msg.replyTo.attachmentName}`
-                                  : 'Attachment')}
-                            </span>
-                          </div>
-                          {msg.replyTo.attachmentUrl && msg.replyTo.attachmentType === 'image' && (
-                            <Image
-                              src={msg.replyTo.attachmentUrl}
-                              alt="Replying photo thumbnail"
-                              width={44}
-                              height={44}
-                              className="h-11 w-11 flex-shrink-0 object-cover"
-                            />
-                          )}
-                        </div>
-                      )}
+          ) : messages.map((msg, index) => {
+            const startsNewDay =
+              index === 0 ||
+              getMessageDateKey(msg.createdAt) !==
+                getMessageDateKey(messages[index - 1].createdAt);
 
-                      <div className="px-2 pb-1 pt-0.5">
-                      {msg.text && (
-                        <p
-                          className={`whitespace-pre-wrap break-words ${
-                            emojiOnlyScale(msg.text) || ''
-                          }`}
-                        >
-                          {msg.text}
-                        </p>
-                      )}
-
-                      {/* Attachment Render */}
-                      {msg.attachment && (
-                        <div className={msg.text ? 'mt-2' : ''}>
-                          {msg.attachment.type === 'image' ? (
-                            <div className="relative group/img rounded-lg overflow-hidden border border-white/20 min-h-70 max-h-70">
-                              <Image
-                                src={msg.attachment.url}
-                                alt={msg.attachment.name || 'Attachment'}
-                                width={224}
-                                height={144}
-                                onClick={() => setPreviewImage(msg.attachment?.url || null)}
-                                className="w-full h-full object-contain object-top cursor-pointer hover:scale-105 transition-transform"
-                              />
-                            </div>
-                          ) : msg.attachment.type === 'video' ? (
-                            <video
-                              src={msg.attachment.url}
-                              controls
-                              preload="metadata"
-                              className="max-h-64 w-64 rounded-lg bg-black"
-                            >
-                              Your browser does not support video playback.
-                            </video>
-                          ) : msg.attachment.type === 'audio' ? (
-                            <div className="min-w-64 rounded-xl bg-black/10 p-2">
-                              <div className="mb-1.5 flex items-center gap-2">
-                                <Headphones className="h-4 w-4 flex-shrink-0" />
-                                <span className="max-w-48 truncate text-[11px]">
-                                  {msg.attachment.name || 'Audio'}
-                                </span>
-                              </div>
-                              <audio
-                                src={msg.attachment.url}
-                                controls
-                                preload="metadata"
-                                className="h-9 w-full"
-                              >
-                                Your browser does not support audio playback.
-                              </audio>
-                            </div>
-                          ) : (
-                            <a
-                              href={msg.attachment.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              download={msg.attachment.name}
-                              className="flex min-w-56 items-center gap-2 rounded-lg bg-black/10 p-2 text-xs transition-colors hover:bg-black/15"
-                            >
-                              <FileText className="w-4 h-4 flex-shrink-0" />
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate">{msg.attachment.name}</span>
-                                {msg.attachment.size && (
-                                  <span className="block text-[10px] opacity-75">
-                                    {msg.attachment.size}
-                                  </span>
-                                )}
-                              </span>
-                              <Download className="w-3.5 h-3.5 ml-auto cursor-pointer" />
-                            </a>
-                          )}
-                        </div>
-                      )}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Timestamp & Status Icon */}
-                <div
-                  className={`flex items-center gap-1 mt-1 text-[10px] text-outline ${
-                    msg.isSentByMe ? 'self-end mr-1' : 'self-start ml-1'
-                  }`}
-                >
-                  <span>{msg.time}</span>
-                  {msg.isSentByMe && msg.status === 'sending' && (
-                    <LoaderCircle className="h-3 w-3 animate-spin text-outline" />
-                  )}
-                  {msg.isSentByMe && msg.status === 'queued' && (
-                    <span
-                      title="Waiting for a connection — this sends automatically"
-                      className="inline-flex items-center gap-1 font-medium text-amber-600"
-                    >
-                      <Clock3 className="h-3 w-3" />
-                      Queued
+            return (
+              <React.Fragment key={msg.id}>
+                {startsNewDay && (
+                  <div className="sticky top-2 z-10 my-1 flex justify-center">
+                    <span className="rounded-lg border border-outline-variant/50 bg-surface/95 px-3 py-1 text-[10px] font-semibold text-on-surface-variant shadow-xs backdrop-blur-sm">
+                      {formatMessageDateLabel(msg.createdAt)}
                     </span>
-                  )}
-                  {msg.isSentByMe && msg.status === 'failed' && (
-                    <button
-                      type="button"
-                      onClick={() => onRetryMessage?.(msg)}
-                      title={msg.error || 'Message was not delivered'}
-                      className="inline-flex items-center gap-1 font-semibold text-red-600 hover:text-red-700"
-                      aria-label="Retry sending message"
-                    >
-                      <RotateCcw className="h-3 w-3" />
-                      Failed · Retry
-                    </button>
-                  )}
-                  {msg.isSentByMe &&
-                    msg.status !== 'sending' &&
-                    msg.status !== 'queued' &&
-                    msg.status !== 'failed' && (
-                      <CheckCheck className="w-3.5 h-3.5 text-primary" />
-                    )}
-                </div>
-              </div>
-
-              {/* 3-Dots Menu Trigger Button */}
-              {!msg.isDeleted && (
-                <div className="relative self-center opacity-70 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveMenuMessageId(
-                        activeMenuMessageId === msg.id ? null : msg.id
-                      );
-                    }}
-                    className="p-1.5 rounded-full text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
-                    title="Message options"
-                    aria-label="Message options"
-                  >
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-
-                  {/* Dropdown Menu Popup */}
-                  {activeMenuMessageId === msg.id && (
-                    <div
-                      ref={messageMenuRef}
-                      className={`absolute z-50 bottom-full mb-1 w-44 rounded-2xl border border-outline-variant/60 bg-white p-1.5 shadow-2xl ${
-                        msg.isSentByMe ? 'right-0' : 'left-0'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setReplyingToMessage(msg);
-                          setActiveMenuMessageId(null);
-                          inputRef.current?.focus();
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-on-surface rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer"
-                      >
-                        <Reply className="w-4 h-4 text-primary" />
-                        <span>Reply</span>
-                      </button>
-
-                      {msg.attachment && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            handleDownloadAttachment(msg.attachment);
-                            setActiveMenuMessageId(null);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-on-surface rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer"
-                        >
-                          <Download className="w-4 h-4 text-emerald-600" />
-                          <span>Download file</span>
-                        </button>
-                      )}
-
-                      {msg.text && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigator.clipboard.writeText(msg.text);
-                            setActiveMenuMessageId(null);
-                          }}
-                          className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-on-surface rounded-xl hover:bg-surface-container-low transition-colors cursor-pointer"
-                        >
-                          <Copy className="w-4 h-4 text-outline" />
-                          <span>Copy text</span>
-                        </button>
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onDeleteMessage?.(msg);
-                          setActiveMenuMessageId(null);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-red-600 rounded-xl hover:bg-red-50 transition-colors cursor-pointer"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                        <span>Delete message</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            )
-          ))}
+                  </div>
+                )}
+                {msg.callEvent ? (
+                  <CallLogEntry message={msg} />
+                ) : (
+                  <MessageItem
+                    message={msg}
+                    isMenuOpen={activeMenuMessageId === msg.id}
+                    menuRef={messageMenuRef}
+                    onToggleMenu={toggleMessageMenu}
+                    onReply={replyToMessage}
+                    onDownload={downloadMessageAttachment}
+                    onDelete={deleteMessage}
+                    onPreview={previewMessageImage}
+                    onRetry={onRetryMessage}
+                    onCloseMenu={closeMessageMenu}
+                  />
+                )}
+              </React.Fragment>
+            );
+          })}
 
           {/* Real-time Typing Bubble Animation */}
           {isContactTyping && (
@@ -750,7 +940,7 @@ export const ChatArea = memo(function ChatArea({
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   {replyingToMessage.attachment?.url && replyingToMessage.attachment?.type === 'image' && (
                     <Image
-                      src={replyingToMessage.attachment.url}
+                      src={getCloudinaryThumbnail(replyingToMessage.attachment.url, 72)}
                       alt="Reply thumbnail"
                       width={36}
                       height={36}
@@ -811,13 +1001,35 @@ export const ChatArea = memo(function ChatArea({
                 )}
 
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium text-on-surface">
-                    {selectedFile.name}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="min-w-0 flex-1 truncate text-xs font-medium text-on-surface">
+                      {selectedFile.name}
+                    </p>
+                    {canCompressSelectedImage && (
+                      <button
+                        type="button"
+                        disabled={isSending}
+                        aria-label="Upload image in original quality"
+                        aria-pressed={uploadInHd}
+                        onClick={() => setUploadInHd((enabled) => !enabled)}
+                        className={`rounded-md border px-1.5 py-0.5 text-[9px] font-bold transition-colors disabled:opacity-40 ${
+                          uploadInHd
+                            ? 'border-primary bg-primary text-on-primary'
+                            : 'border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary'
+                        }`}
+                      >
+                        HD
+                      </button>
+                    )}
+                  </div>
                   <p className="mt-0.5 text-[10px] text-outline">
                     {isSending && uploadProgress > 0
                       ? `Uploading ${uploadProgress}%`
-                      : formatFileSize(selectedFile.size)}
+                      : `${formatFileSize(selectedFile.size)}${
+                          canCompressSelectedImage
+                            ? ` · ${uploadInHd ? 'Original quality' : 'Optimized on send'}`
+                            : ''
+                        }`}
                   </p>
                   {isSending && (
                     <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-container-high">
@@ -832,7 +1044,10 @@ export const ChatArea = memo(function ChatArea({
                 <button
                   type="button"
                   disabled={isSending}
-                  onClick={() => setSelectedFile(null)}
+                  onClick={() => {
+                    setSelectedFile(null);
+                    setUploadInHd(false);
+                  }}
                   aria-label="Remove attachment"
                   className="rounded-full p-1.5 text-outline transition-colors hover:bg-surface-container-high hover:text-on-surface disabled:opacity-40"
                 >
@@ -1005,7 +1220,7 @@ export const ChatArea = memo(function ChatArea({
           <div className="flex flex-col items-center text-center">
             {isRealAvatar(conversation.contact?.avatar) ? (
               <Image
-                src={conversation.contact.avatar}
+                src={getCloudinaryThumbnail(conversation.contact.avatar, 160)}
                 alt={conversation.contact?.name || 'Contact'}
                 width={80}
                 height={80}
@@ -1044,7 +1259,7 @@ export const ChatArea = memo(function ChatArea({
                 {sharedImages.map((attachment, index) => (
                   <Image
                     key={`${attachment.url}-${index}`}
-                    src={attachment.url}
+                    src={getCloudinaryThumbnail(attachment.url, 160, 128)}
                     alt={attachment.name || 'Shared image'}
                     width={80}
                     height={64}

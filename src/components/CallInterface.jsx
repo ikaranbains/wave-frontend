@@ -14,11 +14,36 @@ import {
   Volume2,
 } from 'lucide-react';
 import { getCallTokenApi } from '../services/api';
+import { getCloudinaryThumbnail } from '../utils/avatarUtils';
 
 function formatDuration(totalSeconds) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+function ControlButton({ onClick, disabled, active, label, children, tone }) {
+  return (
+    <div className="flex w-16 flex-col items-center gap-1.5">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        aria-pressed={active === undefined ? undefined : active}
+        className={`flex h-14 w-14 items-center justify-center rounded-full transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${
+          tone === 'danger'
+            ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 hover:bg-red-600'
+            : active
+              ? 'bg-white text-slate-900'
+              : 'bg-white/12 text-white ring-1 ring-white/15 hover:bg-white/20'
+        }`}
+      >
+        {children}
+      </button>
+      <span className="text-[11px] font-medium text-white/60">{label}</span>
+    </div>
+  );
 }
 
 export function IncomingCall({ call, onAccept, onDecline }) {
@@ -33,7 +58,7 @@ export function IncomingCall({ call, onAccept, onDecline }) {
           <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
           {call.caller?.avatar ? (
             <Image
-              src={call.caller.avatar}
+              src={getCloudinaryThumbnail(call.caller.avatar, 192)}
               alt={call.caller?.name || 'Caller'}
               width={96}
               height={96}
@@ -311,28 +336,6 @@ export function CallInterface({ call, onEnd }) {
 
   const initial = call.contact?.name?.charAt(0)?.toUpperCase() || '?';
 
-  const ControlButton = ({ onClick, disabled, active, label, children, tone }) => (
-    <div className="flex w-16 flex-col items-center gap-1.5">
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        aria-label={label}
-        aria-pressed={active === undefined ? undefined : active}
-        className={`flex h-14 w-14 items-center justify-center rounded-full transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${
-          tone === 'danger'
-            ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 hover:bg-red-600'
-            : active
-            ? 'bg-white text-slate-900'
-            : 'bg-white/12 text-white ring-1 ring-white/15 hover:bg-white/20'
-        }`}
-      >
-        {children}
-      </button>
-      <span className="text-[11px] font-medium text-white/60">{label}</span>
-    </div>
-  );
-
   return (
     <div className="fixed inset-0 z-[100] h-dvh overflow-hidden bg-slate-950 text-white">
       <div ref={remoteAudioRef} className="hidden" aria-hidden="true" />
@@ -359,7 +362,7 @@ export function CallInterface({ call, onEnd }) {
               )}
               {call.contact?.avatar ? (
                 <Image
-                  src={call.contact.avatar}
+                  src={getCloudinaryThumbnail(call.contact.avatar, 288)}
                   alt=""
                   width={144}
                   height={144}

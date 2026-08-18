@@ -1,9 +1,9 @@
 'use client';
 
-import React, { memo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { MessageSquare, Search } from 'lucide-react';
-import { getInitials, isRealAvatar } from '../utils/avatarUtils';
+import { getCloudinaryThumbnail, getInitials, isRealAvatar } from '../utils/avatarUtils';
 
 export const ChatListPane = memo(function ChatListPane({
   conversations = [],
@@ -15,10 +15,16 @@ export const ChatListPane = memo(function ChatListPane({
 }) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredConversations = conversations.filter(
-    (conv) =>
-      conv.contact?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      conv.lastMessage?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredConversations = useMemo(
+    () => {
+      const query = searchQuery.toLowerCase();
+      return conversations.filter(
+        (conv) =>
+          conv.contact?.name?.toLowerCase().includes(query) ||
+          conv.lastMessage?.toLowerCase().includes(query)
+      );
+    },
+    [conversations, searchQuery]
   );
 
   return (
@@ -92,7 +98,7 @@ export const ChatListPane = memo(function ChatListPane({
                 <div className="relative flex-shrink-0">
                   {isRealAvatar(conv.contact?.avatar) ? (
                     <Image
-                      src={conv.contact?.avatar}
+                      src={getCloudinaryThumbnail(conv.contact?.avatar, 96)}
                       alt={conv.contact?.name}
                       width={48}
                       height={48}

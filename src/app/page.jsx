@@ -1,21 +1,41 @@
 'use client';
 
 import Image from 'next/image';
+import dynamic from 'next/dynamic';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CallInterface, IncomingCall } from '../components/CallInterface';
 import { ChatArea } from '../components/ChatArea';
 import { ChatListPane } from '../components/ChatListPane';
-import { ContactsView } from '../components/ContactsView';
-import { HelpModal } from '../components/HelpModal';
 import { LoginScreen } from '../components/LoginScreen';
-import { SearchModal } from '../components/SearchModal';
-import { SettingsView } from '../components/SettingsView';
 import { Sidebar } from '../components/Sidebar';
 import { useAuth } from '../hooks/useAuth';
 import { useCalls } from '../hooks/useCalls';
 import { useConversations } from '../hooks/useConversations';
 import { useTheme } from '../hooks/useTheme';
+import { syncPushToken } from '../services/pushClient';
+
+const CallInterface = dynamic(
+  () => import('../components/CallInterface').then((module) => module.CallInterface),
+  { ssr: false }
+);
+const IncomingCall = dynamic(
+  () => import('../components/CallInterface').then((module) => module.IncomingCall),
+  { ssr: false }
+);
+const SearchModal = dynamic(
+  () => import('../components/SearchModal').then((module) => module.SearchModal),
+  { ssr: false }
+);
+const HelpModal = dynamic(
+  () => import('../components/HelpModal').then((module) => module.HelpModal),
+  { ssr: false }
+);
+const ContactsView = dynamic(() =>
+  import('../components/ContactsView').then((module) => module.ContactsView)
+);
+const SettingsView = dynamic(() =>
+  import('../components/SettingsView').then((module) => module.SettingsView)
+);
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('messages');
@@ -33,6 +53,8 @@ export default function Home() {
     setActiveConversationId,
     startChatFromContact,
     selectConversation,
+    activeConversationId,
+    loadOlderMessages: loadOlderMessagePage,
   } = chat;
   const { activeCall, endActiveCall } = calls;
   const { handleLogout: logout } = auth;
@@ -43,6 +65,10 @@ export default function Home() {
   const closeConversation = useCallback(
     () => setActiveConversationId(null),
     [setActiveConversationId]
+  );
+  const loadOlderMessages = useCallback(
+    () => loadOlderMessagePage(activeConversationId),
+    [loadOlderMessagePage, activeConversationId]
   );
   const handleContactStart = useCallback(
     async (contact) => {
@@ -88,6 +114,13 @@ export default function Home() {
 
     applyLaunchUrl();
   }, [auth.currentUser, selectConversation]);
+
+  // FCM rotates registration tokens, so re-send the current one on each sign-in.
+  // Silent and best-effort: it never prompts and never surfaces an error here.
+  useEffect(() => {
+    if (!auth.currentUser) return;
+    syncPushToken();
+  }, [auth.currentUser]);
 
   // The service worker forwards notification clicks while the app is already open.
   useEffect(() => {
@@ -162,6 +195,9 @@ export default function Home() {
             conversation={chat.activeConversation}
             messages={chat.activeMessages}
             isLoading={chat.isMessagesLoading}
+            isLoadingOlderMessages={chat.isLoadingOlderMessages}
+            hasMoreMessages={chat.hasMoreMessages}
+            onLoadOlderMessages={loadOlderMessages}
             isContactTyping={chat.isContactTyping}
             onSendMessage={chat.sendMessage}
             onRetryMessage={chat.retryMessage}
@@ -193,20 +229,24 @@ export default function Home() {
         />
       )}
 
-      <SearchModal
-        isOpen={isSearchOpen}
-        onClose={closeSearch}
-        conversations={chat.conversations}
-        contacts={chat.contacts}
-        onSelectConversation={handleSearchSelection}
-      />
-      <HelpModal isOpen={isHelpOpen} onClose={closeHelp} />
+      {isSearchOpen && (
+        <SearchModal
+          isOpen
+          onClose={closeSearch}
+          conversations={chat.conversations}
+          contacts={chat.contacts}
+          onSelectConversation={handleSearchSelection}
+        />
+      )}
+      {isHelpOpen && <HelpModal isOpen onClose={closeHelp} />}
 
-      <IncomingCall
-        call={calls.incomingCall}
-        onAccept={calls.acceptIncomingCall}
-        onDecline={calls.declineIncomingCall}
-      />
+      {calls.incomingCall && (
+        <IncomingCall
+          call={calls.incomingCall}
+          onAccept={calls.acceptIncomingCall}
+          onDecline={calls.declineIncomingCall}
+        />
+      )}
       {calls.activeCall && (
         <CallInterface call={calls.activeCall} onEnd={calls.endActiveCall} />
       )}

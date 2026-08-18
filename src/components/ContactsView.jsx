@@ -1,9 +1,9 @@
 'use client';
 
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import { Search, Mail, MessageSquare, Users, LoaderCircle } from 'lucide-react';
-import { getInitials, isRealAvatar } from '../utils/avatarUtils';
+import { getCloudinaryThumbnail, getInitials, isRealAvatar } from '../utils/avatarUtils';
 
 export const ContactsView = memo(function ContactsView({
   contacts = [],
@@ -22,13 +22,16 @@ export const ContactsView = memo(function ContactsView({
     return () => window.clearTimeout(timeoutId);
   }, [search, onLoadUsers]);
 
-  const filteredContacts = contacts.filter((c) => {
-    const matchesFilter = filter === 'all' || c.status === filter;
-    const matchesSearch =
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.email.toLowerCase().includes(search.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  const filteredContacts = useMemo(() => {
+    const query = search.toLowerCase();
+    return contacts.filter((contact) => {
+      const matchesFilter = filter === 'all' || contact.status === filter;
+      const matchesSearch =
+        contact.name.toLowerCase().includes(query) ||
+        contact.email.toLowerCase().includes(query);
+      return matchesFilter && matchesSearch;
+    });
+  }, [contacts, filter, search]);
 
   return (
     <div className="ambient scroll-touch h-full flex-1 select-none overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(1.5rem+env(safe-area-inset-top))] md:ml-[100px] md:p-8 md:pb-8">
@@ -115,7 +118,7 @@ export const ContactsView = memo(function ContactsView({
                 <div className="relative">
                   {isRealAvatar(contact.avatar) ? (
                     <Image
-                      src={contact.avatar}
+                      src={getCloudinaryThumbnail(contact.avatar, 112)}
                       alt={contact.name}
                       width={56}
                       height={56}

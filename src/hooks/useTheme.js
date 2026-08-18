@@ -16,13 +16,11 @@ function applyTheme(theme) {
 }
 
 export function useTheme() {
-  const [theme, setThemeState] = useState('system');
-
-  useEffect(() => {
+  const [theme, setThemeState] = useState(() => {
+    if (typeof window === 'undefined') return 'system';
     const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
-    const nextTheme = THEMES.includes(storedTheme) ? storedTheme : 'system';
-    setThemeState(nextTheme);
-  }, []);
+    return THEMES.includes(storedTheme) ? storedTheme : 'system';
+  });
 
   useEffect(() => {
     applyTheme(theme);

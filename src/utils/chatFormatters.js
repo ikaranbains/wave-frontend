@@ -25,6 +25,7 @@ export function formatConversation(conversation, currentUserId) {
 }
 
 export function formatMessage(message, currentUserId) {
+  const createdAt = message.createdAt || new Date().toISOString();
   const replyTo =
     message.replyTo &&
     (message.replyTo.id || message.replyTo.senderName || message.replyTo.text || message.replyTo.attachmentUrl)
@@ -44,7 +45,8 @@ export function formatMessage(message, currentUserId) {
     conversationId: getEntityId(message.conversationId),
     senderId: getEntityId(message.senderId),
     text: message.text,
-    time: new Date(message.createdAt || Date.now()).toLocaleTimeString([], {
+    createdAt,
+    time: new Date(createdAt).toLocaleTimeString([], {
       hour: '2-digit',
       minute: '2-digit',
     }),

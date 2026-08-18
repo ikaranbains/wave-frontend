@@ -6,7 +6,7 @@ import {
   getConversationsApi,
   getMessagesApi,
   getUsersApi,
-  sendMessageApi,
+  sendMessagesBatchApi,
   startConversationApi,
   uploadFileApi,
 } from '../services/api';
@@ -17,12 +17,19 @@ import {
   requestOutboxSync,
 } from '../services/outbox';
 import {
+  getConversationSnapshot,
+  saveConversationSnapshot,
+} from '../services/offlineCache';
+import {
+  emitConversationRead,
   emitDeleteMessage,
+  emitMessageDelivered,
   emitSendMessage,
   emitTypingStart,
   emitTypingStop,
   joinConversationRoom,
   onMessageDeleted,
+  onMessageStatusChanged,
   onReceiveMessage,
   onPresenceChange,
   onUserTyping,
@@ -36,7 +43,33 @@ import {
   formatMessage,
   getEntityId,
 } from '../utils/chatFormatters';
+import {
+  MESSAGE_PAGE_SIZE,
+  getOlderCursor,
+  prependOlderMessages,
+} from '../utils/messagePagination';
 import { playMessageSound, primeNotificationSound } from '../utils/notificationSound';
+
+const MESSAGE_STATUS_PRIORITY = {
+  sending: 0,
+  queued: 0,
+  failed: 0,
+  error: 0,
+  sent: 1,
+  delivered: 2,
+  read: 3,
+};
+
+function mergeMessageChanges(message, changes) {
+  if (
+    changes.status &&
+    (MESSAGE_STATUS_PRIORITY[message.status] || 0) >
+      (MESSAGE_STATUS_PRIORITY[changes.status] || 0)
+  ) {
+    return { ...message, ...changes, status: message.status };
+  }
+  return { ...message, ...changes };
+}
 
 function upsertMessage(messages, incoming) {
   const matchIndex = messages.findIndex(
@@ -57,18 +90,34 @@ function upsertMessage(messages, incoming) {
   return next;
 }
 
+function mergeMessages(existing, incoming) {
+  let merged = [...existing];
+  incoming.forEach((message) => {
+    merged = upsertMessage(merged, message);
+  });
+  return merged.sort(
+    (left, right) => Date.parse(left.createdAt || 0) - Date.parse(right.createdAt || 0)
+  );
+}
+
 export function useConversations({ currentUser, isBackendConnected }) {
+  const cacheUserId = getEntityId(currentUser);
   const [conversations, setConversations] = useState([]);
   const [activeConversationId, setActiveConversationId] = useState(null);
   const [messagesMap, setMessagesMap] = useState({});
   const [contacts, setContacts] = useState([]);
-  const [isInitialDataLoading, setIsInitialDataLoading] = useState(false);
+  const [isInitialDataLoading, setIsInitialDataLoading] = useState(Boolean(currentUser));
   const [isContactsLoading, setIsContactsLoading] = useState(false);
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
+  // { [conversationId]: { hasMore, before, beforeId } } — where the next older page starts.
+  const [paginationMap, setPaginationMap] = useState({});
   const contactsAbortRef = useRef(null);
   const messagesAbortRef = useRef(null);
   const activeConversationIdRef = useRef(activeConversationId);
   const currentUserRef = useRef(currentUser);
+  const messagesMapRef = useRef(messagesMap);
+  const cacheReadyUserIdRef = useRef('');
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
@@ -78,6 +127,10 @@ export function useConversations({ currentUser, isBackendConnected }) {
     currentUserRef.current = currentUser;
   }, [currentUser]);
 
+  useEffect(() => {
+    messagesMapRef.current = messagesMap;
+  }, [messagesMap]);
+
   const resetConversationState = useCallback(() => {
     contactsAbortRef.current?.abort();
     messagesAbortRef.current?.abort();
@@ -85,47 +138,105 @@ export function useConversations({ currentUser, isBackendConnected }) {
     setConversations([]);
     setActiveConversationId(null);
     setMessagesMap({});
+    setPaginationMap({});
   }, []);
 
   useEffect(() => {
-    if (!currentUser || !isBackendConnected) {
+    if (!cacheUserId) {
+      cacheReadyUserIdRef.current = '';
+      queueMicrotask(() => {
+        if (currentUserRef.current) return;
+        resetConversationState();
+        setIsInitialDataLoading(false);
+      });
       return undefined;
     }
 
+    let active = true;
     const controller = new AbortController();
-    const currentUserId = getEntityId(currentUser);
-    queueMicrotask(() => {
-      if (!controller.signal.aborted) setIsInitialDataLoading(true);
-    });
 
-    Promise.all([
-      getUsersApi('', controller.signal),
-      getConversationsApi(controller.signal),
-    ])
-      .then(([{ users }, { conversations: liveConversations }]) => {
+    const loadInitialData = async () => {
+      let cacheWasReady = cacheReadyUserIdRef.current === cacheUserId;
+
+      if (!cacheWasReady) {
+        resetConversationState();
+        setIsInitialDataLoading(true);
+        const cached = await getConversationSnapshot(cacheUserId);
+        if (!active) return;
+
+        if (cached) {
+          const cachedConversations = cached.conversations || [];
+          setConversations(cachedConversations);
+          setMessagesMap(cached.messagesMap || {});
+          setActiveConversationId(
+            cachedConversations.some(
+              (conversation) => conversation.id === cached.activeConversationId
+            )
+              ? cached.activeConversationId
+              : null
+          );
+          cacheWasReady = true;
+        }
+
+        cacheReadyUserIdRef.current = cacheUserId;
+      }
+
+      if (cacheWasReady) setIsInitialDataLoading(false);
+      if (!isBackendConnected) {
+        setIsInitialDataLoading(false);
+        return;
+      }
+
+      if (!cacheWasReady) setIsInitialDataLoading(true);
+
+      try {
+        const [{ users }, { conversations: liveConversations }] = await Promise.all([
+          getUsersApi('', controller.signal),
+          getConversationsApi(controller.signal),
+        ]);
+        if (!active) return;
+
         setContacts(
           (users || [])
-            .filter((candidate) => getEntityId(candidate) !== currentUserId)
+            .filter((candidate) => getEntityId(candidate) !== cacheUserId)
             .map(formatContact)
         );
         setConversations(
           (liveConversations || [])
-            .map((conversation) => formatConversation(conversation, currentUserId))
+            .map((conversation) => formatConversation(conversation, cacheUserId))
             .filter(Boolean)
         );
-      })
-      .catch((error) => {
+      } catch (error) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
           console.error('Unable to load initial chat data:', error);
-          resetConversationState();
         }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setIsInitialDataLoading(false);
-      });
+      } finally {
+        if (active) setIsInitialDataLoading(false);
+      }
+    };
 
-    return () => controller.abort();
-  }, [currentUser, isBackendConnected, resetConversationState]);
+    loadInitialData();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [cacheUserId, isBackendConnected, resetConversationState]);
+
+  useEffect(() => {
+    if (!cacheUserId || cacheReadyUserIdRef.current !== cacheUserId) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      saveConversationSnapshot({
+        userId: cacheUserId,
+        conversations,
+        messagesMap,
+        activeConversationId,
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [activeConversationId, cacheUserId, conversations, messagesMap]);
 
   const loadContacts = useCallback(
     async (search = '') => {
@@ -159,21 +270,34 @@ export function useConversations({ currentUser, isBackendConnected }) {
   const selectConversation = useCallback(
     async (conversationId) => {
       messagesAbortRef.current?.abort();
-      const controller = new AbortController();
-      messagesAbortRef.current = controller;
       setActiveConversationId(conversationId);
-      setIsMessagesLoading(true);
+      setIsMessagesLoading(
+        isBackendConnected && !messagesMapRef.current[conversationId]?.length
+      );
 
       setConversations((previous) =>
         previous.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c))
       );
 
+      if (!isBackendConnected) return;
+
+      const controller = new AbortController();
+      messagesAbortRef.current = controller;
+
       try {
-        const { messages } = await getMessagesApi(conversationId, controller.signal);
-        const formatted = (messages || []).map((message) =>
-          formatMessage(message, getEntityId(currentUser))
-        );
-        setMessagesMap((previous) => ({ ...previous, [conversationId]: formatted }));
+        const { messages, hasMore } = await getMessagesApi(conversationId, controller.signal, {
+          limit: MESSAGE_PAGE_SIZE,
+        });
+        const raw = messages || [];
+        const formatted = raw.map((message) => formatMessage(message, getEntityId(currentUser)));
+        setMessagesMap((previous) => ({
+          ...previous,
+          [conversationId]: mergeMessages(previous[conversationId] || [], formatted),
+        }));
+        setPaginationMap((previous) => ({
+          ...previous,
+          [conversationId]: { hasMore: Boolean(hasMore), ...(getOlderCursor(raw) || {}) },
+        }));
       } catch (error) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
           console.error('Error loading conversation messages:', error);
@@ -182,7 +306,48 @@ export function useConversations({ currentUser, isBackendConnected }) {
         if (messagesAbortRef.current === controller) setIsMessagesLoading(false);
       }
     },
-    [currentUser]
+    [currentUser, isBackendConnected]
+  );
+
+  /**
+   * Prepend the next older page. Guarded against re-entry so a double click cannot
+   * fetch the same page twice, and deduped by id so a socket message that arrived
+   * mid-flight is never rendered twice.
+   */
+  const loadOlderMessages = useCallback(
+    async (conversationId) => {
+      const cursor = paginationMap[conversationId];
+      if (!conversationId || !cursor?.hasMore || !cursor.before) return;
+      if (isLoadingOlderMessages) return;
+
+      setIsLoadingOlderMessages(true);
+      try {
+        const { messages, hasMore } = await getMessagesApi(conversationId, undefined, {
+          limit: MESSAGE_PAGE_SIZE,
+          before: cursor.before,
+          beforeId: cursor.beforeId,
+        });
+        const raw = messages || [];
+        const older = raw.map((message) => formatMessage(message, getEntityId(currentUser)));
+
+        setMessagesMap((previous) => ({
+          ...previous,
+          [conversationId]: prependOlderMessages(previous[conversationId], older),
+        }));
+        setPaginationMap((previous) => ({
+          ...previous,
+          [conversationId]: {
+            hasMore: Boolean(hasMore),
+            ...(getOlderCursor(raw) || { before: cursor.before, beforeId: cursor.beforeId }),
+          },
+        }));
+      } catch (error) {
+        console.error('Error loading older messages:', error);
+      } finally {
+        setIsLoadingOlderMessages(false);
+      }
+    },
+    [currentUser, isLoadingOlderMessages, paginationMap]
   );
 
   // Unlock audio on the first interaction, so the very first incoming chime is
@@ -236,6 +401,13 @@ export function useConversations({ currentUser, isBackendConnected }) {
       const currentUserId = getEntityId(currentUserRef.current);
       const formatted = formatMessage(incomingMessage, currentUserId);
       const convId = formatted.conversationId;
+      const isReading =
+        activeConversationIdRef.current === convId && document.visibilityState === 'visible';
+
+      if (!formatted.isSentByMe && !formatted.callEvent) {
+        if (isReading) emitConversationRead(convId);
+        else emitMessageDelivered(formatted.id);
+      }
 
       setTypingMap((prev) => ({ ...prev, [convId]: false }));
 
@@ -271,8 +443,6 @@ export function useConversations({ currentUser, isBackendConnected }) {
 
       setConversations((previous) => {
         const existingIndex = previous.findIndex((c) => c.id === convId);
-        const isActive = activeConversationIdRef.current === convId;
-
         if (existingIndex !== -1) {
           const existing = previous[existingIndex];
           const updated = {
@@ -280,7 +450,7 @@ export function useConversations({ currentUser, isBackendConnected }) {
             lastMessage: lastMsgText || 'New message',
             time: formatted.time || 'Just now',
             unreadCount:
-              !isActive && !formatted.isSentByMe
+              !isReading && !formatted.isSentByMe
                 ? (existing.unreadCount || 0) + 1
                 : existing.unreadCount,
           };
@@ -304,6 +474,41 @@ export function useConversations({ currentUser, isBackendConnected }) {
       });
     });
   }, [activeConversationId, currentUser, isBackendConnected]);
+
+  useEffect(() => {
+    if (!currentUser || !isBackendConnected || !activeConversationId) return undefined;
+
+    const markActiveConversationRead = () => {
+      if (document.visibilityState !== 'visible') return;
+      emitConversationRead(activeConversationId);
+      setConversations((previous) =>
+        previous.map((conversation) =>
+          conversation.id === activeConversationId
+            ? { ...conversation, unreadCount: 0 }
+            : conversation
+        )
+      );
+    };
+
+    markActiveConversationRead();
+    document.addEventListener('visibilitychange', markActiveConversationRead);
+    return () => document.removeEventListener('visibilitychange', markActiveConversationRead);
+  }, [activeConversationId, currentUser, isBackendConnected]);
+
+  useEffect(() => {
+    if (!currentUser || !isBackendConnected) return undefined;
+
+    return onMessageStatusChanged(({ conversationId, messageIds = [], status }) => {
+      if (!MESSAGE_STATUS_PRIORITY[status]) return;
+      const ids = new Set(messageIds.map(String));
+      setMessagesMap((previous) => ({
+        ...previous,
+        [conversationId]: (previous[conversationId] || []).map((message) =>
+          ids.has(String(message.id)) ? mergeMessageChanges(message, { status }) : message
+        ),
+      }));
+    });
+  }, [currentUser, isBackendConnected]);
 
   useEffect(() => {
     if (!currentUser || !isBackendConnected) return undefined;
@@ -348,7 +553,7 @@ export function useConversations({ currentUser, isBackendConnected }) {
     setMessagesMap((previous) => ({
       ...previous,
       [conversationId]: (previous[conversationId] || []).map((message) =>
-        message.clientId === clientId ? { ...message, ...changes } : message
+        message.clientId === clientId ? mergeMessageChanges(message, changes) : message
       ),
     }));
   }, []);
@@ -424,6 +629,7 @@ export function useConversations({ currentUser, isBackendConnected }) {
         conversationId: activeConversationId,
         senderId: getEntityId(currentUser),
         text,
+        createdAt: new Date().toISOString(),
         time: new Date().toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
@@ -508,26 +714,45 @@ export function useConversations({ currentUser, isBackendConnected }) {
     const queued = await getQueuedMessages();
     if (queued.length === 0) return;
 
-    for (const entry of [...queued].sort((a, b) => a.createdAt - b.createdAt)) {
-      try {
-        const { messageId } = await sendMessageApi({
-          clientId: entry.clientId,
-          conversationId: entry.conversationId,
-          text: entry.text,
-          attachment: entry.attachment,
-          replyTo: entry.replyTo,
-        });
-        await removeQueuedMessage(entry.clientId);
-        markMessage(entry.conversationId, entry.clientId, {
-          id: messageId || entry.clientId,
-          status: 'sent',
-          error: undefined,
-        });
-      } catch {
-        // Still unreachable — leave the rest queued for the next attempt.
-        break;
-      }
+    const sorted = [...queued].sort((a, b) => a.createdAt - b.createdAt);
+    const batches = [];
+    for (let index = 0; index < sorted.length; index += 10) {
+      batches.push(sorted.slice(index, index + 10));
     }
+
+    const requests = await Promise.allSettled(
+      batches.map((batch) =>
+        sendMessagesBatchApi(
+          batch.map((entry) => ({
+            clientId: entry.clientId,
+            conversationId: entry.conversationId,
+            text: entry.text,
+            attachment: entry.attachment,
+            replyTo: entry.replyTo,
+          }))
+        )
+      )
+    );
+
+    const queuedByClientId = new Map(sorted.map((entry) => [entry.clientId, entry]));
+    await Promise.allSettled(
+      requests.flatMap((request) => {
+        if (request.status === 'rejected') return [];
+        return (request.value.results || []).map(async (result) => {
+          const entry = queuedByClientId.get(result.clientId);
+          if (!entry || (!result.ok && (result.status === 401 || result.status >= 500))) return;
+
+          await removeQueuedMessage(entry.clientId);
+          markMessage(
+            entry.conversationId,
+            entry.clientId,
+            result.ok
+              ? { id: result.messageId || entry.clientId, status: 'sent', error: undefined }
+              : { status: 'error', error: result.error || 'Message could not be sent' }
+          );
+        });
+      })
+    );
 
     notifyOutboxChanged();
   }, [markMessage, notifyOutboxChanged]);
@@ -644,6 +869,9 @@ export function useConversations({ currentUser, isBackendConnected }) {
     isInitialDataLoading,
     isContactsLoading,
     isMessagesLoading,
+    isLoadingOlderMessages,
+    hasMoreMessages: Boolean(paginationMap[activeConversationId]?.hasMore),
+    loadOlderMessages,
     typingMap,
     isContactTyping: Boolean(typingMap[activeConversationId]),
     sendTypingStart,

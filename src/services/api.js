@@ -68,9 +68,20 @@ export async function getConversationsApi(signal) {
   }
 }
 
-export async function getMessagesApi(conversationId, signal) {
+/**
+ * One page of thread history, newest page first. Pass the oldest loaded message's
+ * createdAt and id as `before`/`beforeId` to walk further back.
+ */
+export async function getMessagesApi(conversationId, signal, { limit, before, beforeId } = {}) {
   try {
-    const response = await apiClient.get(`/messages/${conversationId}`, { signal });
+    const params = {};
+    if (limit) params.limit = limit;
+    if (before) {
+      params.before = before;
+      if (beforeId) params.beforeId = beforeId;
+    }
+
+    const response = await apiClient.get(`/messages/${conversationId}`, { signal, params });
     return response.data;
   } catch (error) {
     if (error.code === 'ERR_CANCELED') throw error;
@@ -163,6 +174,16 @@ export async function sendMessageApi(payload) {
   }
 }
 
+/** Batch replay path for the offline outbox (maximum 10 messages per request). */
+export async function sendMessagesBatchApi(messages) {
+  try {
+    const response = await apiClient.post('/messages/batch', { messages });
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Failed to send queued messages'));
+  }
+}
+
 export async function getPushPublicKeyApi() {
   try {
     const response = await apiClient.get('/push/public-key');
@@ -172,18 +193,18 @@ export async function getPushPublicKeyApi() {
   }
 }
 
-export async function savePushSubscriptionApi(subscription) {
+export async function savePushTokenApi(token) {
   try {
-    const response = await apiClient.post('/push/subscribe', { subscription });
+    const response = await apiClient.post('/push/subscribe', { token });
     return response.data;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Failed to enable push notifications'));
   }
 }
 
-export async function deletePushSubscriptionApi(endpoint) {
+export async function deletePushTokenApi(token) {
   try {
-    const response = await apiClient.post('/push/unsubscribe', { endpoint });
+    const response = await apiClient.post('/push/unsubscribe', { token });
     return response.data;
   } catch (error) {
     throw new Error(getApiErrorMessage(error, 'Failed to disable push notifications'));

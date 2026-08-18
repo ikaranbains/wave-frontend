@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { updateSettingsApi, uploadAvatarApi } from '../services/api';
 import { usePushNotifications } from '../hooks/usePushNotifications';
+import { getCloudinaryThumbnail } from '../utils/avatarUtils';
 import { isStandaloneDisplay } from './InstallPrompt';
 
 const SECTIONS = [
@@ -218,7 +219,10 @@ export const SettingsView = memo(function SettingsView({
 
             <div className="flex flex-col items-center gap-4 rounded-2xl border border-outline-variant/40 bg-white p-4 text-center sm:flex-row sm:p-5 sm:text-left">
               <Image
-                src={photoPreview || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+                src={getCloudinaryThumbnail(
+                  photoPreview || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+                  128
+                )}
                 alt="Avatar"
                 width={64}
                 height={64}
@@ -367,7 +371,8 @@ export const SettingsView = memo(function SettingsView({
               )}
               {push.isSupported && !push.isServerConfigured && (
                 <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] text-amber-800">
-                  The server has no VAPID keys configured, so push delivery is disabled.
+                  Firebase Cloud Messaging is not configured on the server, so push
+                  delivery is disabled.
                 </p>
               )}
               {push.permission === 'denied' && (

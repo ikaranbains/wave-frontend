@@ -2,6 +2,7 @@ import { io } from 'socket.io-client';
 const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:8000';
 
 let socket = null;
+let joinedConversationId = null;
 
 export function getSocket() {
   if (!socket) {
@@ -12,6 +13,13 @@ export function getSocket() {
       reconnectionDelayMax: 5000,
       transports: ['websocket', 'polling'],
       withCredentials: true,
+    });
+    socket.on('connect', () => {
+      if (!joinedConversationId) return;
+      socket.emit('join_conversation', joinedConversationId);
+      if (document.visibilityState === 'visible') {
+        socket.emit('messages_read', { conversationId: joinedConversationId });
+      }
     });
   }
   return socket;
@@ -25,16 +33,36 @@ export function connectSocket() {
 }
 
 export function disconnectSocket() {
-  if (socket && socket.connected) {
-    socket.disconnect();
-  }
+  joinedConversationId = null;
+  socket?.disconnect();
+}
+
+export function reconnectSocket() {
+  const s = getSocket();
+  if (s.connected) s.disconnect();
+  s.connect();
 }
 
 export function joinConversationRoom(conversationId) {
   const s = getSocket();
+  joinedConversationId = conversationId || null;
   if (s.connected) {
     s.emit('join_conversation', conversationId);
   }
+}
+
+export function emitMessageDelivered(messageId) {
+  const s = getSocket();
+  if (s.connected && messageId) s.emit('message_delivered', { messageId });
+}
+
+export function emitConversationRead(conversationId) {
+  const s = getSocket();
+  if (s.connected && conversationId) s.emit('messages_read', { conversationId });
+}
+
+export function onMessageStatusChanged(callback) {
+  return subscribeToSocketEvent('message_status', callback);
 }
 
 export function emitSendMessage(data) {

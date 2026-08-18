@@ -3,7 +3,7 @@
 import React, { memo } from 'react';
 import Image from 'next/image';
 import { MessageSquare, Users, Search, Settings, HelpCircle } from 'lucide-react';
-import { getInitials, isRealAvatar } from '../utils/avatarUtils';
+import { getCloudinaryThumbnail, getInitials, isRealAvatar } from '../utils/avatarUtils';
 
 export const Sidebar = memo(function Sidebar({
   activeTab,
@@ -120,7 +120,7 @@ export const Sidebar = memo(function Sidebar({
               <Image
                 className="w-10 h-10 rounded-full border-2 border-white/70 object-cover shadow-sm transition-opacity hover:opacity-90"
                 alt={currentUser.name}
-                src={currentUser.avatar}
+                src={getCloudinaryThumbnail(currentUser.avatar, 80)}
                 width={40}
                 height={40}
               />
