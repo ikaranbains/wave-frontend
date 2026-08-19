@@ -14,18 +14,32 @@ import { useConversations } from '../hooks/useConversations';
 import { useTheme } from '../hooks/useTheme';
 import { requestPushOnLaunch } from '../services/pushClient';
 
-const HOME_VIEW = { tab: 'messages', conversationId: null };
+const HOME_VIEW = { tab: 'messages', conversationId: null, settingsSection: null };
 const VALID_TABS = new Set(['messages', 'contacts', 'settings']);
 
-function getView(tab, conversationId) {
+function getView(tab, conversationId, settingsSection) {
   return {
     tab,
     conversationId: tab === 'messages' ? conversationId : null,
+    settingsSection: tab === 'settings' ? settingsSection : null,
   };
 }
 
 function isSameView(left, right) {
-  return left?.tab === right.tab && left?.conversationId === right.conversationId;
+  return (
+    left?.tab === right.tab &&
+    left?.conversationId === right.conversationId &&
+    (left?.settingsSection || null) === (right.settingsSection || null)
+  );
+}
+
+function shouldBridgeThroughHome(savedView, view) {
+  const staysWithinSettings = savedView?.tab === 'settings' && view.tab === 'settings';
+  return (
+    !staysWithinSettings &&
+    !isSameView(view, HOME_VIEW) &&
+    !isSameView(savedView, HOME_VIEW)
+  );
 }
 
 function saveView(view, replace = false) {
@@ -58,6 +72,7 @@ const SettingsView = dynamic(() =>
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('messages');
+  const [activeSettingsSection, setActiveSettingsSection] = useState(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const auth = useAuth();
@@ -81,6 +96,17 @@ export default function Home() {
   const openHelp = useCallback(() => setIsHelpOpen(true), []);
   const closeSearch = useCallback(() => setIsSearchOpen(false), []);
   const closeHelp = useCallback(() => setIsHelpOpen(false), []);
+  const selectTab = useCallback((tab) => {
+    setActiveTab(tab);
+    if (tab !== 'settings') setActiveSettingsSection(null);
+  }, []);
+  const closeSettingsSection = useCallback(() => {
+    if (window.history.state?.waveView?.settingsSection) {
+      window.history.back();
+    } else {
+      setActiveSettingsSection(null);
+    }
+  }, []);
   const closeConversation = useCallback(
     () => {
       if (window.history.state?.waveView?.conversationId) {
@@ -97,16 +123,16 @@ export default function Home() {
   );
   const handleContactStart = useCallback(
     async (contact) => {
-      if (await startChatFromContact(contact)) setActiveTab('messages');
+      if (await startChatFromContact(contact)) selectTab('messages');
     },
-    [startChatFromContact]
+    [selectTab, startChatFromContact]
   );
   const handleSearchSelection = useCallback(
     (id) => {
-      setActiveTab('messages');
+      selectTab('messages');
       selectConversation(id);
     },
-    [selectConversation]
+    [selectConversation, selectTab]
   );
   const handleLogout = useCallback(async () => {
     if (activeCall) endActiveCall();
@@ -121,7 +147,7 @@ export default function Home() {
       return;
     }
 
-    const view = getView(activeTab, activeConversationId);
+    const view = getView(activeTab, activeConversationId, activeSettingsSection);
     if (!hasInitializedHistory.current) {
       hasInitializedHistory.current = true;
       saveView(HOME_VIEW, true);
@@ -133,11 +159,11 @@ export default function Home() {
     if (isSameView(savedView, view)) return;
 
     // Chats and secondary tabs always go back to the Messages home view.
-    if (!isSameView(view, HOME_VIEW) && !isSameView(savedView, HOME_VIEW)) {
+    if (shouldBridgeThroughHome(savedView, view)) {
       saveView(HOME_VIEW);
     }
     saveView(view);
-  }, [auth.currentUser, activeConversationId, activeTab]);
+  }, [auth.currentUser, activeConversationId, activeSettingsSection, activeTab]);
 
   useEffect(() => {
     if (!auth.currentUser) return undefined;
@@ -147,6 +173,7 @@ export default function Home() {
       if (!view || !VALID_TABS.has(view.tab)) return;
 
       setActiveTab(view.tab);
+      setActiveSettingsSection(view.tab === 'settings' ? view.settingsSection || null : null);
       if (view.tab === 'messages' && view.conversationId) {
         selectConversation(view.conversationId);
       } else {
@@ -171,10 +198,10 @@ export default function Home() {
       const requestedConversation = params.get('conversation');
 
       if (['messages', 'contacts', 'settings'].includes(requestedTab)) {
-        setActiveTab(requestedTab);
+        selectTab(requestedTab);
       }
       if (requestedConversation) {
-        setActiveTab('messages');
+        selectTab('messages');
         selectConversation(requestedConversation);
       }
       if (requestedTab || requestedConversation) {
@@ -187,7 +214,7 @@ export default function Home() {
     };
 
     applyLaunchUrl();
-  }, [auth.currentUser, selectConversation]);
+  }, [auth.currentUser, selectConversation, selectTab]);
 
   // Ask for notification permission on launch, then register the FCM token. Also
   // re-sends an existing token, which rotates. Best-effort: errors surface in
@@ -202,14 +229,14 @@ export default function Home() {
     const handleOpenConversation = (event) => {
       const conversationId = event.detail?.conversationId;
       if (!conversationId) return;
-      setActiveTab('messages');
+      selectTab('messages');
       selectConversation(conversationId);
     };
 
     window.addEventListener('pingme:open-conversation', handleOpenConversation);
     return () =>
       window.removeEventListener('pingme:open-conversation', handleOpenConversation);
-  }, [selectConversation]);
+  }, [selectConversation, selectTab]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -248,7 +275,7 @@ export default function Home() {
     <div className="ambient flex h-full w-full overflow-hidden">
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={selectTab}
         onOpenSearch={openSearch}
         onOpenHelp={openHelp}
         currentUser={auth.currentUser}
@@ -297,6 +324,9 @@ export default function Home() {
       {activeTab === 'settings' && (
         <SettingsView
           currentUser={auth.currentUser}
+          activeSection={activeSettingsSection}
+          onSectionChange={setActiveSettingsSection}
+          onSectionBack={closeSettingsSection}
           theme={theme.theme}
           onThemeChange={theme.setTheme}
           onUserUpdated={auth.updateCurrentUser}

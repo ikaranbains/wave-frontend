@@ -35,8 +35,17 @@ export const SearchModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex select-none items-start justify-center bg-black/50 p-3 pt-[calc(1rem+env(safe-area-inset-top))] sm:p-4 sm:pt-20">
-      <div className="flex max-h-[85dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-outline-variant bg-white shadow-2xl sm:max-h-[70dvh]">
+    <div
+      className="fixed inset-0 z-50 flex select-none items-start justify-center bg-black/50 p-3 pt-[calc(1rem+env(safe-area-inset-top))] sm:p-4 sm:pt-20"
+      onPointerDown={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search Wave"
+        onPointerDown={(event) => event.stopPropagation()}
+        className="flex max-h-[85dvh] w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-outline-variant bg-white shadow-2xl sm:max-h-[70dvh]"
+      >
         {/* Search Header */}
         <div className="p-4 border-b border-surface-container flex items-center gap-3">
           <Search className="w-5 h-5 text-primary" />

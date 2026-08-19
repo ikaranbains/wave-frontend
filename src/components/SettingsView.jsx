@@ -25,7 +25,7 @@ import {
 } from 'lucide-react';
 import { updateSettingsApi, uploadAvatarApi } from '../services/api';
 import { usePushNotifications } from '../hooks/usePushNotifications';
-import { getCloudinaryThumbnail } from '../utils/avatarUtils';
+import { getCloudinaryThumbnail, isRealAvatar } from '../utils/avatarUtils';
 import { isStandaloneDisplay } from './InstallPrompt';
 
 const SECTIONS = [
@@ -37,6 +37,9 @@ const SECTIONS = [
 
 export const SettingsView = memo(function SettingsView({
   currentUser,
+  activeSection,
+  onSectionChange,
+  onSectionBack,
   theme = 'system',
   onThemeChange,
   onUserUpdated,
@@ -44,7 +47,6 @@ export const SettingsView = memo(function SettingsView({
 }) {
   // null means nothing picked yet: mobile shows the section list, desktop has room
   // for both panes at once and just falls back to the first section.
-  const [activeSection, setActiveSection] = useState(null);
   const section = activeSection || 'profile';
   const push = usePushNotifications();
   const [isInstalled, setIsInstalled] = useState(true);
@@ -153,7 +155,7 @@ export const SettingsView = memo(function SettingsView({
           pane replaces it once a section is picked; from md up both are visible. */}
       <div
         className={`scroll-touch w-full min-w-0 flex-col justify-between overflow-y-auto bg-surface-container px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 md:flex md:w-64 md:flex-none md:border-r md:border-outline-variant/40 md:p-6 md:pb-6 md:pt-[calc(1.5rem+env(safe-area-inset-top))] ${
-          activeSection ? 'hidden' : 'flex flex-1'
+          activeSection ? 'hidden' : 'settings-list-enter flex flex-1'
         }`}
       >
         <div>
@@ -165,7 +167,7 @@ export const SettingsView = memo(function SettingsView({
               <button
                 key={key}
                 type="button"
-                onClick={() => setActiveSection(key)}
+                onClick={() => onSectionChange(key)}
                 aria-current={section === key ? 'true' : undefined}
                 className={`flex w-full items-center gap-3 rounded-xl border border-outline-variant/40 bg-white px-3.5 py-3.5 text-sm font-semibold transition-all active:scale-[0.99] md:border-0 md:bg-transparent md:px-3 md:py-2.5 md:text-xs md:active:scale-100 ${
                   section === key
@@ -201,7 +203,7 @@ export const SettingsView = memo(function SettingsView({
         {activeSection && (
           <button
             type="button"
-            onClick={() => setActiveSection(null)}
+            onClick={onSectionBack}
             className="-ml-2 mb-4 inline-flex items-center gap-1 rounded-xl px-2 py-1.5 text-xs font-semibold text-on-surface-variant transition-colors hover:text-on-surface md:hidden"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -209,6 +211,7 @@ export const SettingsView = memo(function SettingsView({
           </button>
         )}
 
+        <div key={activeSection || 'default-profile'} className="settings-section-enter">
         {savedSuccess && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-600" />
@@ -231,17 +234,23 @@ export const SettingsView = memo(function SettingsView({
             </div>
 
             <div className="flex flex-col items-center gap-4 rounded-2xl border border-outline-variant/40 bg-white p-4 text-center sm:flex-row sm:p-5 sm:text-left">
-              <Image
-                src={getCloudinaryThumbnail(
-                  photoPreview || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-                  128
-                )}
-                alt="Avatar"
-                width={64}
-                height={64}
-                unoptimized={Boolean(photoPreview)}
-                className="w-16 h-16 rounded-full object-cover border-2 border-surface-container"
-              />
+              {photoPreview || isRealAvatar(currentUser?.avatar) ? (
+                <Image
+                  src={getCloudinaryThumbnail(photoPreview || currentUser.avatar, 128)}
+                  alt={`${currentUser?.name || 'User'} profile photo`}
+                  width={64}
+                  height={64}
+                  unoptimized={Boolean(photoPreview)}
+                  className="h-16 w-16 rounded-full border-2 border-surface-container object-cover"
+                />
+              ) : (
+                <span
+                  aria-label="No profile photo"
+                  className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-surface-container bg-surface-container-low text-outline"
+                >
+                  <User className="h-7 w-7" />
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <input
                   id="profile-photo-input"
@@ -529,6 +538,8 @@ export const SettingsView = memo(function SettingsView({
             </div>
           </div>
         )}
+
+        </div>
 
       </div>
     </div>

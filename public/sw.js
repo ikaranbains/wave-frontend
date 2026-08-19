@@ -1,6 +1,6 @@
 /* Wave service worker — app shell caching, offline outbox flush, FCM push. */
 
-const SW_VERSION = 'v10';
+const SW_VERSION = 'v12';
 const SHELL_CACHE = `pingme-shell-${SW_VERSION}`;
 const ASSET_CACHE = `pingme-assets-${SW_VERSION}`;
 const OFFLINE_URL = '/offline';
@@ -16,6 +16,7 @@ const SHELL_ASSETS = [
   OFFLINE_URL,
   '/manifest.webmanifest',
   '/wave-192.png',
+  '/wave-badge.png',
 ];
 
 /* ------------------------------------------------------------------ */
@@ -311,12 +312,15 @@ self.addEventListener('fetch', (event) => {
 function normalizePushPayload(payload) {
   const notification = payload.notification || {};
   const data = payload.data || {};
+  const kind = data.kind || 'message';
 
   return {
-    title: notification.title || payload.title || 'Wave',
-    body: notification.body || payload.body || 'You have a new message',
-    icon: notification.icon || payload.icon || '/wave-192.png',
-    badge: notification.badge || payload.badge || '/wave-192.png',
+    title: kind === 'message' ? 'Wave' : notification.title || payload.title || 'Wave',
+    body:
+      kind === 'message'
+        ? '1 new message'
+        : notification.body || payload.body || 'You have a new notification',
+    badge: '/wave-badge.png',
     tag: notification.tag || payload.tag || 'pingme-message',
     // FCM serializes every data value to a string, so compare as one.
     requireInteraction:
@@ -324,8 +328,18 @@ function normalizePushPayload(payload) {
     url: data.url || payload.fcmOptions?.link || notification.click_action || '/',
     conversationId: data.conversationId,
     callId: data.callId,
-    kind: data.kind || 'message',
+    kind,
   };
+}
+
+function formatMessageCount(count) {
+  return `${count} new message${count === 1 ? '' : 's'}`;
+}
+
+function getNotificationDisplay(push, messageCount) {
+  return messageCount === undefined
+    ? { title: push.title, body: push.body }
+    : { title: formatMessageCount(messageCount), body: undefined };
 }
 
 self.addEventListener('push', (event) => {
@@ -351,9 +365,15 @@ self.addEventListener('push', (event) => {
         return;
       }
 
-      await self.registration.showNotification(push.title, {
-        body: push.body,
-        icon: push.icon,
+      let messageCount;
+      if (push.kind === 'message') {
+        const previous = await self.registration.getNotifications({ tag: push.tag });
+        messageCount = (previous[0]?.data?.messageCount || 0) + 1;
+      }
+      const display = getNotificationDisplay(push, messageCount);
+
+      await self.registration.showNotification(display.title, {
+        body: display.body,
         badge: push.badge,
         tag: push.tag,
         renotify: true,
@@ -365,6 +385,7 @@ self.addEventListener('push', (event) => {
           conversationId: push.conversationId,
           callId: push.callId,
           kind: push.kind,
+          messageCount,
         },
       });
     })()

@@ -13,9 +13,12 @@ assert.ok(start !== -1, 'normalizePushPayload not found in public/sw.js');
 const end = source.indexOf('\nself.addEventListener(\'push\'', start);
 assert.ok(end !== -1, 'could not find the end of normalizePushPayload');
 
-const normalizePushPayload = new Function(
-  `${source.slice(start, end)}; return normalizePushPayload;`
+const { normalizePushPayload, formatMessageCount, getNotificationDisplay } = new Function(
+  `${source.slice(start, end)}; return { normalizePushPayload, formatMessageCount, getNotificationDisplay };`
 )();
+
+assert.strictEqual(formatMessageCount(1), '1 new message');
+assert.strictEqual(formatMessageCount(2), '2 new messages');
 
 // What the backend actually sends for a message, as FCM delivers it to the worker.
 const message = normalizePushPayload({
@@ -24,12 +27,18 @@ const message = normalizePushPayload({
   fcmMessageId: 'abc',
   from: '833615006163',
 });
-assert.strictEqual(message.title, 'Asha');
-assert.strictEqual(message.body, 'Sent a photo');
+assert.strictEqual(message.title, 'Wave');
+assert.strictEqual(message.body, '1 new message');
+assert.strictEqual(message.badge, '/wave-badge.png');
+assert.strictEqual('icon' in message, false);
 assert.strictEqual(message.tag, 'conversation-c1');
 assert.strictEqual(message.conversationId, 'c1');
 assert.strictEqual(message.kind, 'message');
 assert.strictEqual(message.requireInteraction, false);
+assert.deepStrictEqual(getNotificationDisplay(message, 2), {
+  title: '2 new messages',
+  body: undefined,
+});
 
 // A ringing call must keep the notification up and carry the callId through.
 const call = normalizePushPayload({
@@ -38,7 +47,12 @@ const call = normalizePushPayload({
 });
 assert.strictEqual(call.kind, 'call');
 assert.strictEqual(call.callId, 'x1');
+assert.strictEqual(call.body, 'Incoming video call');
 assert.strictEqual(call.requireInteraction, true, 'a ringing call must require interaction');
+assert.deepStrictEqual(getNotificationDisplay(call), {
+  title: 'Asha',
+  body: 'Incoming video call',
+});
 
 // FCM stringifies data values; a stringified boolean must still count as true.
 assert.strictEqual(
@@ -52,15 +66,15 @@ assert.strictEqual(
   'https://wave.app/?c=1'
 );
 
-// An unparsable push degrades to the text fallback, never to undefined.
+// Message content stays private even for a bare legacy payload.
 const bare = normalizePushPayload({ title: 'Wave', body: 'raw text' });
 assert.strictEqual(bare.title, 'Wave');
-assert.strictEqual(bare.body, 'raw text');
+assert.strictEqual(bare.body, '1 new message');
 assert.strictEqual(bare.url, '/');
 
 const empty = normalizePushPayload({});
 assert.strictEqual(empty.title, 'Wave');
-assert.strictEqual(empty.body, 'You have a new message');
+assert.strictEqual(empty.body, '1 new message');
 assert.strictEqual(empty.tag, 'pingme-message');
 
 console.log('✅ sw.js push payload self-check passed');
