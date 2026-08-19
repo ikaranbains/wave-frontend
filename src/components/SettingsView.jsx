@@ -10,6 +10,8 @@ import {
   Shield,
   Palette,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Lock,
   AlertCircle,
   LoaderCircle,
@@ -27,20 +29,10 @@ import { getCloudinaryThumbnail } from '../utils/avatarUtils';
 import { isStandaloneDisplay } from './InstallPrompt';
 
 const SECTIONS = [
-  { key: 'profile', icon: User, label: 'Profile & Account', shortLabel: 'Profile' },
-  {
-    key: 'notifications',
-    icon: Bell,
-    label: 'Notifications & Sounds',
-    shortLabel: 'Alerts',
-  },
-  { key: 'privacy', icon: Shield, label: 'Privacy & Security', shortLabel: 'Privacy' },
-  {
-    key: 'appearance',
-    icon: Palette,
-    label: 'Appearance & Theme',
-    shortLabel: 'Appearance',
-  },
+  { key: 'profile', icon: User, label: 'Profile & Account' },
+  { key: 'notifications', icon: Bell, label: 'Notifications & Sounds' },
+  { key: 'privacy', icon: Shield, label: 'Privacy & Security' },
+  { key: 'appearance', icon: Palette, label: 'Appearance & Theme' },
 ];
 
 export const SettingsView = memo(function SettingsView({
@@ -50,7 +42,10 @@ export const SettingsView = memo(function SettingsView({
   onUserUpdated,
   onLogout,
 }) {
-  const [activeSection, setActiveSection] = useState('profile');
+  // null means nothing picked yet: mobile shows the section list, desktop has room
+  // for both panes at once and just falls back to the first section.
+  const [activeSection, setActiveSection] = useState(null);
+  const section = activeSection || 'profile';
   const push = usePushNotifications();
   const [isInstalled, setIsInstalled] = useState(true);
 
@@ -154,48 +149,66 @@ export const SettingsView = memo(function SettingsView({
 
   return (
     <div className="flex h-full min-w-0 flex-1 select-none flex-col overflow-hidden bg-surface md:ml-[100px] md:flex-row">
-      {/* Settings Navigation Sidebar */}
-      <div className="flex w-full min-w-0 flex-shrink-0 flex-col justify-between border-b border-outline-variant/40 bg-surface-container px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 md:w-64 md:p-6 md:pt-[calc(1.5rem+env(safe-area-inset-top))] md:border-b-0 md:border-r">
+      {/* Section list. On mobile this is a full screen of its own and the content
+          pane replaces it once a section is picked; from md up both are visible. */}
+      <div
+        className={`scroll-touch w-full min-w-0 flex-col justify-between overflow-y-auto bg-surface-container px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 md:flex md:w-64 md:flex-none md:border-r md:border-outline-variant/40 md:p-6 md:pb-6 md:pt-[calc(1.5rem+env(safe-area-inset-top))] ${
+          activeSection ? 'hidden' : 'flex flex-1'
+        }`}
+      >
         <div>
           <h1 className="mb-3 font-display text-xl font-bold tracking-tight text-on-surface md:mb-6">
             Settings
           </h1>
-          <nav className="no-scrollbar -mx-4 flex snap-x gap-2 overflow-x-auto px-4 sm:-mx-6 sm:px-6 md:mx-0 md:block md:space-y-1 md:overflow-visible md:px-0">
-            {SECTIONS.map(({ key, icon: Icon, label, shortLabel }) => (
+          <nav className="space-y-1.5 md:space-y-1">
+            {SECTIONS.map(({ key, icon: Icon, label }) => (
               <button
                 key={key}
                 type="button"
                 onClick={() => setActiveSection(key)}
-                aria-current={activeSection === key ? 'true' : undefined}
-                className={`flex flex-shrink-0 snap-start items-center gap-2.5 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-sm font-semibold transition-all md:w-full md:gap-3 md:text-xs ${
-                  activeSection === key
-                    ? 'bg-primary text-white shadow-sm shadow-primary/25'
+                aria-current={section === key ? 'true' : undefined}
+                className={`flex w-full items-center gap-3 rounded-xl border border-outline-variant/40 bg-white px-3.5 py-3.5 text-sm font-semibold transition-all active:scale-[0.99] md:border-0 md:bg-transparent md:px-3 md:py-2.5 md:text-xs md:active:scale-100 ${
+                  section === key
+                    ? 'md:bg-primary md:text-white md:shadow-sm md:shadow-primary/25'
                     : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
                 }`}
               >
                 <Icon className="h-4 w-4 flex-shrink-0" />
-                <span className="md:hidden">{shortLabel}</span>
-                <span className="hidden md:inline">{label}</span>
+                <span className="min-w-0 flex-1 text-left">{label}</span>
+                <ChevronRight className="h-4 w-4 flex-shrink-0 text-outline md:hidden" />
               </button>
             ))}
           </nav>
         </div>
 
-        {/* Sign out lives with the content on mobile — see below — so the tab
-            strip stays a single compact row. */}
         {onLogout && (
           <button
             onClick={onLogout}
-            className="mt-auto hidden w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-semibold text-red-600 transition-all hover:bg-red-50 md:flex"
+            className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-semibold text-red-600 transition-all active:scale-[0.98] md:mt-auto md:justify-start md:gap-3 md:border-0 md:bg-transparent md:px-3 md:py-2.5 md:text-xs md:hover:bg-red-50 md:active:scale-100"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="h-4 w-4" />
             <span>Sign out</span>
           </button>
         )}
       </div>
 
       {/* Content Form Area */}
-      <div className="scroll-touch min-w-0 max-w-3xl flex-1 overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] sm:p-6 md:p-8 md:pb-8">
+      <div
+        className={`scroll-touch min-w-0 max-w-3xl flex-1 overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(1.5rem+env(safe-area-inset-top))] md:block md:p-8 md:pb-8 md:pt-[calc(2rem+env(safe-area-inset-top))] ${
+          activeSection ? 'block' : 'hidden'
+        }`}
+      >
+        {activeSection && (
+          <button
+            type="button"
+            onClick={() => setActiveSection(null)}
+            className="-ml-2 mb-4 inline-flex items-center gap-1 rounded-xl px-2 py-1.5 text-xs font-semibold text-on-surface-variant transition-colors hover:text-on-surface md:hidden"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Settings
+          </button>
+        )}
+
         {savedSuccess && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
             <Check className="w-4 h-4 text-emerald-600" />
@@ -210,7 +223,7 @@ export const SettingsView = memo(function SettingsView({
         )}
 
         {/* Profile Section */}
-        {activeSection === 'profile' && (
+        {section === 'profile' && (
           <form onSubmit={handleSave} className="space-y-6">
             <div>
               <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Profile Settings</h2>
@@ -307,7 +320,7 @@ export const SettingsView = memo(function SettingsView({
         )}
 
         {/* Notifications Section */}
-        {activeSection === 'notifications' && (
+        {section === 'notifications' && (
           <form onSubmit={handleSave} className="space-y-6">
             <div>
               <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Notification Preferences</h2>
@@ -363,7 +376,14 @@ export const SettingsView = memo(function SettingsView({
                 </button>
               </div>
 
-              {!push.isSupported && (
+              {!push.isAppConfigured && (
+                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] text-amber-800">
+                  This build of Wave has no Firebase configuration, so push cannot be
+                  enabled. The NEXT_PUBLIC_FIREBASE_* variables must be set where the app
+                  is built, not just where it runs.
+                </p>
+              )}
+              {push.isAppConfigured && !push.isSupported && (
                 <p className="mt-3 rounded-xl bg-surface-container-low p-3 text-[11px] text-outline">
                   This browser cannot receive web push. On iPhone or iPad, install Wave to
                   the Home Screen first (iOS 16.4 or newer).
@@ -436,7 +456,7 @@ export const SettingsView = memo(function SettingsView({
         )}
 
         {/* Privacy & Security */}
-        {activeSection === 'privacy' && (
+        {section === 'privacy' && (
           <form onSubmit={handleSave} className="space-y-6">
             <div>
               <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Privacy & Security</h2>
@@ -472,7 +492,7 @@ export const SettingsView = memo(function SettingsView({
         )}
 
         {/* Appearance */}
-        {activeSection === 'appearance' && (
+        {section === 'appearance' && (
           <div className="space-y-6">
             <div>
               <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Appearance & Design</h2>
@@ -510,17 +530,6 @@ export const SettingsView = memo(function SettingsView({
           </div>
         )}
 
-        {/* Mobile sign out: at the end of the content instead of stacked above
-            it, so the tab strip does not eat a third of the first screen. */}
-        {onLogout && (
-          <button
-            onClick={onLogout}
-            className="mt-8 flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 py-3 text-sm font-semibold text-red-600 transition-all active:scale-[0.98] md:hidden"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Sign out</span>
-          </button>
-        )}
       </div>
     </div>
   );

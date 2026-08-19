@@ -28,6 +28,19 @@ export async function signupApi(name, email, password) {
   }
 }
 
+export async function resetPasswordApi(email, backupCode, password) {
+  try {
+    const response = await apiClient.post(
+      '/auth/reset-password',
+      { email, backupCode, password },
+      { requiresAuth: false }
+    );
+    return response.data;
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, 'Password reset failed'));
+  }
+}
+
 export async function getMeApi() {
   try {
     const response = await apiClient.get('/auth/me');

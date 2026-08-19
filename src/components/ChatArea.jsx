@@ -1,6 +1,6 @@
 'use client';
 
-import React, {
+import {
   memo,
   useState,
   useRef,
@@ -46,7 +46,7 @@ import { describeCallEvent, formatLastSeen } from '../utils/chatFormatters';
 import { compressImage, shouldCompressImage } from '../utils/imageCompression.mjs';
 import {
   formatMessageDateLabel,
-  getMessageDateKey,
+  groupMessagesByDate,
 } from '../utils/messageDateGroups.mjs';
 
 const EmojiPicker = dynamic(
@@ -464,6 +464,7 @@ export const ChatArea = memo(function ChatArea({
         .map((message) => message.attachment),
     [messages]
   );
+  const messageGroups = useMemo(() => groupMessagesByDate(messages), [messages]);
 
   useEffect(
     () => () => {
@@ -882,25 +883,19 @@ export const ChatArea = memo(function ChatArea({
                 </p>
               </div>
             </div>
-          ) : messages.map((msg, index) => {
-            const startsNewDay =
-              index === 0 ||
-              getMessageDateKey(msg.createdAt) !==
-                getMessageDateKey(messages[index - 1].createdAt);
-
-            return (
-              <React.Fragment key={msg.id}>
-                {startsNewDay && (
-                  <div className="sticky top-2 z-10 my-1 flex justify-center">
-                    <span className="rounded-lg border border-outline-variant/50 bg-surface/95 px-3 py-1 text-[10px] font-semibold text-on-surface-variant shadow-xs backdrop-blur-sm">
-                      {formatMessageDateLabel(msg.createdAt)}
-                    </span>
-                  </div>
-                )}
-                {msg.callEvent ? (
-                  <CallLogEntry message={msg} />
+          ) : messageGroups.map((group) => (
+            <div key={group.key} className="relative flex flex-col gap-4">
+              <div className="sticky top-2 z-10 my-1 flex justify-center">
+                <span className="rounded-lg border border-outline-variant/50 bg-surface/95 px-3 py-1 text-[10px] font-semibold text-on-surface-variant shadow-xs backdrop-blur-sm">
+                  {formatMessageDateLabel(group.messages[0].createdAt)}
+                </span>
+              </div>
+              {group.messages.map((msg) =>
+                msg.callEvent ? (
+                  <CallLogEntry key={msg.id} message={msg} />
                 ) : (
                   <MessageItem
+                    key={msg.id}
                     message={msg}
                     isMenuOpen={activeMenuMessageId === msg.id}
                     menuRef={messageMenuRef}
@@ -912,10 +907,10 @@ export const ChatArea = memo(function ChatArea({
                     onRetry={onRetryMessage}
                     onCloseMenu={closeMessageMenu}
                   />
-                )}
-              </React.Fragment>
-            );
-          })}
+                )
+              )}
+            </div>
+          ))}
 
           {/* Real-time Typing Bubble Animation */}
           {isContactTyping && (

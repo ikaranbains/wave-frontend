@@ -18,8 +18,10 @@ import {
   Loader2,
   Camera,
   ArrowLeft,
+  KeyRound,
+  CheckCircle2,
 } from 'lucide-react';
-import { loginApi, signupWithProfileApi } from '../services/api';
+import { loginApi, resetPasswordApi, signupWithProfileApi } from '../services/api';
 import { useLoginCooldown } from '../hooks/useLoginCooldown';
 
 const HIGHLIGHTS = [
@@ -48,10 +50,15 @@ export const LoginScreen = ({ onLoginSuccess }) => {
   const [signupStep, setSignupStep] = useState(1);
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [photoPreview, setPhotoPreview] = useState('');
+  const [notice, setNotice] = useState('');
   const { remainingSeconds, isCoolingDown, startCooldown } = useLoginCooldown();
 
+  const isReset = mode === 'reset';
+  // The cooldown belongs to failed sign-ins. Resetting is not rate limited, so a
+  // cooldown left over from /login must not block it.
+  const isBlocked = isCoolingDown && !isReset;
   const isLogin = mode === 'login';
-  const isProfileStep = !isLogin && signupStep === 2;
+  const isProfileStep = !isLogin && !isReset && signupStep === 2;
 
   const {
     register,
@@ -64,16 +71,28 @@ export const LoginScreen = ({ onLoginSuccess }) => {
       email: '',
       password: '',
       statusMessage: '',
+      backupCode: '',
     },
   });
 
   const onSubmit = async (formData) => {
-    if (isCoolingDown) return;
+    if (isBlocked) return;
     setApiError(null);
     setLoading(true);
 
     try {
-      if (isLogin) {
+      if (isReset) {
+        await resetPasswordApi(
+          formData.email,
+          formData.backupCode.trim(),
+          formData.password
+        );
+        // Straight back to sign-in rather than auto-signing them in: whoever holds the
+        // code is not necessarily at this keyboard, so the new password gets typed once
+        // more before it grants a session.
+        switchMode('login');
+        setNotice('Password updated. Sign in with your new password.');
+      } else if (isLogin) {
         const data = await loginApi(formData.email, formData.password);
         await onLoginSuccess(data.user);
       } else if (signupStep === 1) {
@@ -101,6 +120,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
     if (photoPreview) URL.revokeObjectURL(photoPreview);
     setMode(newMode);
     setApiError(null);
+    setNotice('');
     setShowPassword(false);
     setSignupStep(1);
     setProfilePhoto(null);
@@ -135,8 +155,10 @@ export const LoginScreen = ({ onLoginSuccess }) => {
 
   const submitLabel = loading
     ? 'Just a moment…'
-    : isCoolingDown
+    : isBlocked
     ? `Try again in ${remainingSeconds}s`
+    : isReset
+    ? 'Reset password'
     : isLogin
     ? 'Sign in'
     : signupStep === 1
@@ -204,6 +226,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
         {/* Form panel */}
         <div className="flex flex-1 flex-col justify-center px-6 py-8 sm:overflow-y-auto sm:px-10 sm:py-11 lg:px-14">
           <div className="mx-auto w-full max-w-sm">
+            {!isReset && (
             <div className="auth-mode-toggle grid grid-cols-2 gap-1 rounded-2xl bg-surface-container p-1">
               <button
                 type="button"
@@ -214,7 +237,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                Sign in
+                Log in 
               </button>
               <button
                 type="button"
@@ -225,20 +248,39 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                     : 'text-on-surface-variant hover:text-on-surface'
                 }`}
               >
-                Sign up
+                Create account
               </button>
             </div>
+            )}
 
-            <div className="mt-7">
+            <div className={isReset ? '' : 'mt-7'}>
               <h2 className="font-display text-2xl font-bold tracking-[-0.02em] text-on-surface sm:text-[1.75rem]">
-                {isLogin ? 'Welcome back' : isProfileStep ? 'Make it yours' : 'Nice to meet you'}
+                {isReset
+                  ? 'Reset your password'
+                  : isLogin
+                  ? 'Welcome back'
+                  : isProfileStep
+                  ? 'Make it yours'
+                  : 'Nice to meet you'}
               </h2>
               <p className="mt-1.5 text-sm text-on-surface-variant">
-                {isLogin
+                {isReset
+                  ? 'Enter the backup code you were given, along with the email on your account.'
+                  : isLogin
                   ? "They've been waiting to hear from you."
                   : 'Set up your space in under a minute. It’s free.'}
               </p>
             </div>
+
+            {notice && (
+              <div
+                role="status"
+                className="mt-5 flex items-start gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-800"
+              >
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>{notice}</span>
+              </div>
+            )}
 
             {apiError && (
               <div
@@ -315,12 +357,48 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                 )}
               </div>}
 
+              {isReset && (
+                <div>
+                  <label
+                    htmlFor="backupCode"
+                    className="mb-1.5 block text-xs font-semibold text-on-surface-variant"
+                  >
+                    Backup code
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-outline" />
+                    <input
+                      id="backupCode"
+                      type="text"
+                      autoComplete="one-time-code"
+                      autoCapitalize="characters"
+                      spellCheck={false}
+                      {...register('backupCode', {
+                        required: 'Enter the backup code you were given',
+                      })}
+                      placeholder="XXXX-XXXX-XXXX-XXXX"
+                      className={`${fieldClass(errors.backupCode)} pr-4 font-mono tracking-wide`}
+                    />
+                  </div>
+                  {errors.backupCode ? (
+                    <p className="mt-1.5 text-xs font-medium text-red-600">
+                      {errors.backupCode.message}
+                    </p>
+                  ) : (
+                    <p className="mt-1.5 text-xs text-outline">
+                      Codes are issued by hand and work once. Ask for one if you do not
+                      have it.
+                    </p>
+                  )}
+                </div>
+              )}
+
               {(!isProfileStep || isLogin) && <div>
                 <label
                   htmlFor="password"
                   className="mb-1.5 block text-xs font-semibold text-on-surface-variant"
                 >
-                  Password
+                  {isReset ? 'New password' : 'Password'}
                 </label>
                 <div className="relative">
                   <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-outline" />
@@ -336,7 +414,11 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                       },
                     })}
                     placeholder={
-                      isLogin ? 'Your password' : 'Something only you know'
+                      isReset
+                        ? 'Your new password'
+                        : isLogin
+                        ? 'Your password'
+                        : 'Something only you know'
                     }
                     className={`${fieldClass(errors.password)} pr-12`}
                   />
@@ -358,6 +440,15 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                   <p className="mt-1.5 text-xs font-medium text-red-600">
                     {errors.password.message}
                   </p>
+                )}
+                {isLogin && (
+                  <button
+                    type="button"
+                    onClick={() => switchMode('reset')}
+                    className="mt-2 cursor-pointer text-xs font-semibold text-primary hover:underline"
+                  >
+                    Forgot your password?
+                  </button>
                 )}
               </div>}
 
@@ -391,27 +482,31 @@ export const LoginScreen = ({ onLoginSuccess }) => {
 
               <button
                 type="submit"
-                disabled={loading || isCoolingDown}
+                disabled={loading || isBlocked}
                 className="auth-submit group flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-sm font-semibold text-on-primary shadow-lg shadow-primary/20 transition-all hover:bg-primary-container active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : null}
                 <span>{submitLabel}</span>
-                {!loading && !isCoolingDown && (
+                {!loading && !isBlocked && (
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                 )}
               </button>
             </form>
 
             <p className="mt-6 text-center text-sm text-on-surface-variant">
-              {isLogin ? 'New here?' : 'Already on Wave?'}{' '}
+              {isReset
+                ? 'Remembered it?'
+                : isLogin
+                ? `Don't have an account?`
+                : 'Already have an account?'}{' '}
               <button
                 type="button"
                 onClick={() => switchMode(isLogin ? 'signup' : 'login')}
                 className="cursor-pointer font-semibold text-primary hover:underline"
               >
-                {isLogin ? 'Make your space' : 'Sign in instead'}
+                {isLogin ? 'Create here' : 'Log in'}
               </button>
             </p>
 

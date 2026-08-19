@@ -15,14 +15,29 @@ export function getSocket() {
       withCredentials: true,
     });
     socket.on('connect', () => {
+      // The server suppresses web push only for a visible client, so it needs this
+      // on every connect — a reconnect after the app was backgrounded starts fresh.
+      reportVisibility();
       if (!joinedConversationId) return;
       socket.emit('join_conversation', joinedConversationId);
       if (document.visibilityState === 'visible') {
         socket.emit('messages_read', { conversationId: joinedConversationId });
       }
     });
+
+    // Registered once for the lifetime of the socket, so no caller has to wire it up.
+    document.addEventListener('visibilitychange', reportVisibility);
   }
   return socket;
+}
+
+/**
+ * Tell the server whether the app is on screen. A backgrounded PWA keeps its socket
+ * open, so without this the server reads it as "user is looking" and sends no push.
+ */
+function reportVisibility() {
+  if (!socket?.connected) return;
+  socket.emit('app_visibility', { isVisible: document.visibilityState === 'visible' });
 }
 
 export function connectSocket() {

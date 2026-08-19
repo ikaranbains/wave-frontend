@@ -8,10 +8,14 @@ import {
   getNotificationPermission,
   isPushSupported,
 } from '../services/pushClient';
+import { isFirebaseConfigured } from '../services/firebaseClient';
 import { getPushPublicKeyApi } from '../services/api';
 
 export function usePushNotifications() {
   const [isSupported, setIsSupported] = useState(false);
+  // NEXT_PUBLIC_FIREBASE_* are inlined at build time, so a deploy built without them
+  // silently disables push. Tracked separately from isSupported to say so out loud.
+  const [isAppConfigured, setIsAppConfigured] = useState(true);
   const [isServerConfigured, setIsServerConfigured] = useState(false);
   const [permission, setPermission] = useState('default');
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -31,6 +35,7 @@ export function usePushNotifications() {
       if (!active) return;
 
       setIsSupported(supported);
+      setIsAppConfigured(isFirebaseConfigured());
       setPermission(getNotificationPermission());
       setIsSubscribed(Boolean(subscription));
 
@@ -81,6 +86,7 @@ export function usePushNotifications() {
 
   return {
     isSupported,
+    isAppConfigured,
     isServerConfigured,
     permission,
     isSubscribed,

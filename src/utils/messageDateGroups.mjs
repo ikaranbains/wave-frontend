@@ -4,6 +4,21 @@ export function getMessageDateKey(value) {
   return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
 }
 
+export function groupMessagesByDate(messages) {
+  return messages.reduce((groups, message) => {
+    const key = getMessageDateKey(message.createdAt);
+    const currentGroup = groups.at(-1);
+
+    if (currentGroup?.key === key) {
+      currentGroup.messages.push(message);
+    } else {
+      groups.push({ key, messages: [message] });
+    }
+
+    return groups;
+  }, []);
+}
+
 export function formatMessageDateLabel(value, now = new Date()) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Earlier';

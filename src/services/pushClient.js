@@ -27,12 +27,22 @@ export function getNotificationPermission() {
  * `public/sw.js` — one worker, one notification, and the focused-window
  * suppression there keeps working.
  *
- * `getRegistration` rather than `serviceWorker.ready`: in development
- * PwaRegistrar unregisters the worker, and `ready` would never resolve.
+ * PwaRegistrar registers the worker on window `load`, so an early call can race it.
+ * Wait on `serviceWorker.ready`, but with a timeout: in development PwaRegistrar
+ * unregisters the worker and `ready` would never resolve.
  */
+const SW_READY_TIMEOUT_MS = 10_000;
+
 async function getServiceWorkerRegistration() {
   if (!('serviceWorker' in navigator)) return null;
-  return (await navigator.serviceWorker.getRegistration('/')) || null;
+
+  const existing = await navigator.serviceWorker.getRegistration('/').catch(() => null);
+  if (existing?.active) return existing;
+
+  return Promise.race([
+    navigator.serviceWorker.ready.catch(() => null),
+    new Promise((resolve) => setTimeout(() => resolve(existing || null), SW_READY_TIMEOUT_MS)),
+  ]);
 }
 
 /** Non-null only when this browser already holds an FCM push subscription. */
@@ -104,6 +114,60 @@ export async function syncPushToken() {
   } catch {
     return null;
   }
+}
+
+/**
+ * Ask for notification permission as soon as the app opens, then register the token.
+ *
+ * Chrome and Edge allow `Notification.requestPermission()` with no user gesture, so
+ * the prompt appears immediately. Firefox and Safari — including an installed iOS
+ * PWA — reject a gesture-less call, so the first tap or keypress retries it. Already
+ * granted means no prompt, just a token refresh; already denied means nothing at all,
+ * because the browser will not re-prompt and Settings owns the recovery copy.
+ *
+ * Returns a cleanup function for the calling effect.
+ */
+export function requestPushOnLaunch() {
+  const permission = getNotificationPermission();
+  if (!isPushSupported() || permission === 'denied' || permission === 'unsupported') {
+    return () => {};
+  }
+  if (permission === 'granted') {
+    syncPushToken();
+    return () => {};
+  }
+
+  const GESTURES = ['pointerdown', 'keydown'];
+  let inFlight = false;
+
+  const disarm = () => {
+    GESTURES.forEach((name) => window.removeEventListener(name, onGesture));
+  };
+
+  async function attempt() {
+    if (inFlight) return;
+    inFlight = true;
+    try {
+      await enablePushNotifications();
+      disarm();
+    } catch {
+      // A gesture-less prompt leaves permission at 'default'. Anything else — denied,
+      // or a real registration failure — is not worth retrying on every tap.
+      if (getNotificationPermission() !== 'default') disarm();
+    } finally {
+      inFlight = false;
+    }
+  }
+
+  function onGesture() {
+    disarm();
+    attempt();
+  }
+
+  GESTURES.forEach((name) => window.addEventListener(name, onGesture, { once: true }));
+  attempt();
+
+  return disarm;
 }
 
 export async function disablePushNotifications() {

@@ -12,7 +12,26 @@ import { useAuth } from '../hooks/useAuth';
 import { useCalls } from '../hooks/useCalls';
 import { useConversations } from '../hooks/useConversations';
 import { useTheme } from '../hooks/useTheme';
-import { syncPushToken } from '../services/pushClient';
+import { requestPushOnLaunch } from '../services/pushClient';
+
+const HOME_VIEW = { tab: 'messages', conversationId: null };
+const VALID_TABS = new Set(['messages', 'contacts', 'settings']);
+
+function getView(tab, conversationId) {
+  return {
+    tab,
+    conversationId: tab === 'messages' ? conversationId : null,
+  };
+}
+
+function isSameView(left, right) {
+  return left?.tab === right.tab && left?.conversationId === right.conversationId;
+}
+
+function saveView(view, replace = false) {
+  const state = { ...window.history.state, waveView: view };
+  window.history[replace ? 'replaceState' : 'pushState'](state, '', window.location.href);
+}
 
 const CallInterface = dynamic(
   () => import('../components/CallInterface').then((module) => module.CallInterface),
@@ -63,7 +82,13 @@ export default function Home() {
   const closeSearch = useCallback(() => setIsSearchOpen(false), []);
   const closeHelp = useCallback(() => setIsHelpOpen(false), []);
   const closeConversation = useCallback(
-    () => setActiveConversationId(null),
+    () => {
+      if (window.history.state?.waveView?.conversationId) {
+        window.history.back();
+      } else {
+        setActiveConversationId(null);
+      }
+    },
     [setActiveConversationId]
   );
   const loadOlderMessages = useCallback(
@@ -88,6 +113,51 @@ export default function Home() {
     await logout();
   }, [activeCall, endActiveCall, logout]);
 
+  // Keep single-page views in browser history so Android Back navigates inside the PWA.
+  const hasInitializedHistory = useRef(false);
+  useEffect(() => {
+    if (!auth.currentUser) {
+      hasInitializedHistory.current = false;
+      return;
+    }
+
+    const view = getView(activeTab, activeConversationId);
+    if (!hasInitializedHistory.current) {
+      hasInitializedHistory.current = true;
+      saveView(HOME_VIEW, true);
+      if (!isSameView(view, HOME_VIEW)) saveView(view);
+      return;
+    }
+
+    const savedView = window.history.state?.waveView;
+    if (isSameView(savedView, view)) return;
+
+    // Chats and secondary tabs always go back to the Messages home view.
+    if (!isSameView(view, HOME_VIEW) && !isSameView(savedView, HOME_VIEW)) {
+      saveView(HOME_VIEW);
+    }
+    saveView(view);
+  }, [auth.currentUser, activeConversationId, activeTab]);
+
+  useEffect(() => {
+    if (!auth.currentUser) return undefined;
+
+    const restoreView = (event) => {
+      const view = event.state?.waveView;
+      if (!view || !VALID_TABS.has(view.tab)) return;
+
+      setActiveTab(view.tab);
+      if (view.tab === 'messages' && view.conversationId) {
+        selectConversation(view.conversationId);
+      } else {
+        setActiveConversationId(null);
+      }
+    };
+
+    window.addEventListener('popstate', restoreView);
+    return () => window.removeEventListener('popstate', restoreView);
+  }, [auth.currentUser, selectConversation, setActiveConversationId]);
+
   // Deep links: manifest shortcuts (?tab=) and notification clicks (?conversation=).
   const hasHandledLaunchUrl = useRef(false);
   useEffect(() => {
@@ -108,18 +178,23 @@ export default function Home() {
         selectConversation(requestedConversation);
       }
       if (requestedTab || requestedConversation) {
-        window.history.replaceState({}, '', window.location.pathname);
+        window.history.replaceState(
+          { ...window.history.state },
+          '',
+          window.location.pathname
+        );
       }
     };
 
     applyLaunchUrl();
   }, [auth.currentUser, selectConversation]);
 
-  // FCM rotates registration tokens, so re-send the current one on each sign-in.
-  // Silent and best-effort: it never prompts and never surfaces an error here.
+  // Ask for notification permission on launch, then register the FCM token. Also
+  // re-sends an existing token, which rotates. Best-effort: errors surface in
+  // Settings, never here.
   useEffect(() => {
-    if (!auth.currentUser) return;
-    syncPushToken();
+    if (!auth.currentUser) return undefined;
+    return requestPushOnLaunch();
   }, [auth.currentUser]);
 
   // The service worker forwards notification clicks while the app is already open.
