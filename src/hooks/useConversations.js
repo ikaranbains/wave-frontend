@@ -134,6 +134,8 @@ export function useConversations({ currentUser, isBackendConnected }) {
   const resetConversationState = useCallback(() => {
     contactsAbortRef.current?.abort();
     messagesAbortRef.current?.abort();
+    activeConversationIdRef.current = null;
+    messagesMapRef.current = {};
     setContacts([]);
     setConversations([]);
     setActiveConversationId(null);
@@ -166,15 +168,17 @@ export function useConversations({ currentUser, isBackendConnected }) {
 
         if (cached) {
           const cachedConversations = cached.conversations || [];
+          const cachedMessagesMap = cached.messagesMap || {};
+          const restoredConversationId = cachedConversations.some(
+            (conversation) => conversation.id === cached.activeConversationId
+          )
+            ? cached.activeConversationId
+            : null;
+          activeConversationIdRef.current = restoredConversationId;
+          messagesMapRef.current = cachedMessagesMap;
           setConversations(cachedConversations);
-          setMessagesMap(cached.messagesMap || {});
-          setActiveConversationId(
-            cachedConversations.some(
-              (conversation) => conversation.id === cached.activeConversationId
-            )
-              ? cached.activeConversationId
-              : null
-          );
+          setMessagesMap(cachedMessagesMap);
+          setActiveConversationId(restoredConversationId);
           cacheWasReady = true;
         }
 
@@ -201,11 +205,67 @@ export function useConversations({ currentUser, isBackendConnected }) {
             .filter((candidate) => getEntityId(candidate) !== cacheUserId)
             .map(formatContact)
         );
+        const formattedConversations = (liveConversations || [])
+          .map((conversation) => formatConversation(conversation, cacheUserId))
+          .filter(Boolean);
+        const visibleActiveId =
+          document.visibilityState === 'visible' ? activeConversationIdRef.current : null;
+
         setConversations(
-          (liveConversations || [])
-            .map((conversation) => formatConversation(conversation, cacheUserId))
-            .filter(Boolean)
+          formattedConversations.map((conversation) =>
+            conversation.id === visibleActiveId
+              ? { ...conversation, unreadCount: 0 }
+              : conversation
+          )
         );
+        if (visibleActiveId) emitConversationRead(visibleActiveId);
+
+        // Refresh the restored thread and every unread thread immediately. This
+        // makes a pushed message ready before the user opens its conversation.
+        const conversationsToRefresh = new Set(
+          formattedConversations
+            .filter((conversation) => conversation.unreadCount > 0)
+            .map((conversation) => conversation.id)
+        );
+        if (activeConversationIdRef.current) {
+          conversationsToRefresh.add(activeConversationIdRef.current);
+        }
+
+        const refreshedPages = await Promise.allSettled(
+          [...conversationsToRefresh].map(async (conversationId) => {
+            const { messages, hasMore } = await getMessagesApi(
+              conversationId,
+              controller.signal,
+              { limit: MESSAGE_PAGE_SIZE }
+            );
+            return { conversationId, raw: messages || [], hasMore };
+          })
+        );
+        if (!active) return;
+
+        const loadedPages = refreshedPages
+          .filter((result) => result.status === 'fulfilled')
+          .map((result) => result.value);
+        if (loadedPages.length > 0) {
+          setMessagesMap((previous) => {
+            const next = { ...previous };
+            loadedPages.forEach(({ conversationId, raw }) => {
+              const formatted = raw.map((message) => formatMessage(message, cacheUserId));
+              next[conversationId] = mergeMessages(next[conversationId] || [], formatted);
+            });
+            return next;
+          });
+          setPaginationMap((previous) => {
+            const next = { ...previous };
+            loadedPages.forEach(({ conversationId, raw, hasMore }) => {
+              next[conversationId] = {
+                hasMore: Boolean(hasMore),
+                ...(getOlderCursor(raw) || {}),
+              };
+            });
+            return next;
+          });
+        }
       } catch (error) {
         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
           console.error('Unable to load initial chat data:', error);
@@ -270,6 +330,7 @@ export function useConversations({ currentUser, isBackendConnected }) {
   const selectConversation = useCallback(
     async (conversationId) => {
       messagesAbortRef.current?.abort();
+      activeConversationIdRef.current = conversationId;
       setActiveConversationId(conversationId);
       setIsMessagesLoading(
         isBackendConnected && !messagesMapRef.current[conversationId]?.length
@@ -450,9 +511,11 @@ export function useConversations({ currentUser, isBackendConnected }) {
             lastMessage: lastMsgText || 'New message',
             time: formatted.time || 'Just now',
             unreadCount:
-              !isReading && !formatted.isSentByMe
-                ? (existing.unreadCount || 0) + 1
-                : existing.unreadCount,
+              isReading
+                ? 0
+                : !formatted.isSentByMe
+                  ? (existing.unreadCount || 0) + 1
+                  : existing.unreadCount,
           };
           const remaining = previous.filter((c) => c.id !== convId);
           return [updated, ...remaining];

@@ -42,6 +42,10 @@ function shouldBridgeThroughHome(savedView, view) {
   );
 }
 
+function needsHomeBackTarget(view, historyLength) {
+  return historyLength <= 1 && !isSameView(view, HOME_VIEW);
+}
+
 function saveView(view, replace = false) {
   const state = { ...window.history.state, waveView: view };
   window.history[replace ? 'replaceState' : 'pushState'](state, '', window.location.href);
@@ -158,6 +162,27 @@ export default function Home() {
       saveView(HOME_VIEW);
     }
     saveView(view);
+  }, [auth.currentUser, activeConversationId, activeSettingsSection, activeTab]);
+
+  // Android can restore a killed standalone task at its last in-app view but with
+  // a fresh one-entry history. Recreate the missing Messages entry on resume.
+  useEffect(() => {
+    if (!auth.currentUser) return undefined;
+
+    const ensureHomeBackTarget = () => {
+      if (document.visibilityState !== 'visible') return;
+      const view = getView(activeTab, activeConversationId, activeSettingsSection);
+      if (!needsHomeBackTarget(view, window.history.length)) return;
+      saveView(HOME_VIEW, true);
+      saveView(view);
+    };
+
+    window.addEventListener('pageshow', ensureHomeBackTarget);
+    document.addEventListener('visibilitychange', ensureHomeBackTarget);
+    return () => {
+      window.removeEventListener('pageshow', ensureHomeBackTarget);
+      document.removeEventListener('visibilitychange', ensureHomeBackTarget);
+    };
   }, [auth.currentUser, activeConversationId, activeSettingsSection, activeTab]);
 
   useEffect(() => {

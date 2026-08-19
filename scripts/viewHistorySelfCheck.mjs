@@ -6,8 +6,8 @@ const start = source.indexOf('const HOME_VIEW');
 const end = source.indexOf('\nfunction saveView', start);
 assert.ok(start !== -1 && end !== -1, 'view history helpers not found in page.jsx');
 
-const { HOME_VIEW, getView, isSameView, shouldBridgeThroughHome } = new Function(
-  `${source.slice(start, end)}; return { HOME_VIEW, getView, isSameView, shouldBridgeThroughHome };`
+const { HOME_VIEW, getView, isSameView, shouldBridgeThroughHome, needsHomeBackTarget } = new Function(
+  `${source.slice(start, end)}; return { HOME_VIEW, getView, isSameView, shouldBridgeThroughHome, needsHomeBackTarget };`
 )();
 
 const settings = getView('settings', null, null);
@@ -23,5 +23,8 @@ assert.deepEqual(getView('messages', 'c1', 'profile'), {
   settingsSection: null,
 });
 assert.equal(isSameView(HOME_VIEW, getView('messages', null)), true);
+assert.equal(needsHomeBackTarget(getView('messages', 'c1'), 1), true);
+assert.equal(needsHomeBackTarget(getView('messages', 'c1'), 2), false);
+assert.equal(needsHomeBackTarget(HOME_VIEW, 1), false);
 
 console.log('✅ view history self-check passed');
