@@ -2,14 +2,12 @@
 
 import React, { memo } from 'react';
 import Image from 'next/image';
-import { MessageSquare, Users, Search, Settings, HelpCircle } from 'lucide-react';
+import { MessageSquare, Phone, Users } from 'lucide-react';
 import { getCloudinaryThumbnail, getInitials, isRealAvatar } from '../utils/avatarUtils';
 
 export const Sidebar = memo(function Sidebar({
   activeTab,
   setActiveTab,
-  onOpenSearch,
-  onOpenHelp,
   currentUser,
   hideOnMobile = false,
 }) {
@@ -65,47 +63,20 @@ export const Sidebar = memo(function Sidebar({
           <Users className="w-5 h-5" />
         </button>
 
-        {/* Global Search */}
+        {/* Calls */}
         <button
-          onClick={onOpenSearch}
-          title="Search"
-          aria-label="Search"
-          className={navClass(false)}
+          onClick={() => setActiveTab('calls')}
+          title="Calls"
+          aria-label="Calls"
+          className={navClass(activeTab === 'calls')}
         >
-          <Search className="w-5 h-5" />
+          <Phone className="w-5 h-5" />
         </button>
 
-        {/* Help — visible inline on mobile since there's no separate bottom cluster */}
-        <button
-          onClick={onOpenHelp}
-          title="Help & Shortcuts"
-          aria-label="Help & Shortcuts"
-          className={`md:hidden ${navClass(false)}`}
-        >
-          <HelpCircle className="w-5 h-5" />
-        </button>
       </nav>
 
-      {/* Bottom Utility Controls & Profile */}
+      {/* Profile */}
       <div className="flex flex-row md:flex-col gap-1 md:gap-3 items-center md:mt-auto">
-        <button
-          onClick={onOpenHelp}
-          title="Help & Shortcuts"
-          aria-label="Help & Shortcuts"
-          className={`hidden md:flex ${navClass(false)}`}
-        >
-          <HelpCircle className="w-5 h-5" />
-        </button>
-
-        <button
-          onClick={() => setActiveTab('settings')}
-          title="Settings"
-          aria-label="Settings"
-          className={`hidden md:flex ${navClass(activeTab === 'settings')}`}
-        >
-          <Settings className="w-5 h-5" />
-        </button>
-
         <div className="md:mt-2 relative">
           <button
             type="button"

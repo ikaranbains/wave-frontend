@@ -15,7 +15,7 @@ import { useTheme } from '../hooks/useTheme';
 import { requestPushOnLaunch } from '../services/pushClient';
 
 const HOME_VIEW = { tab: 'messages', conversationId: null, settingsSection: null };
-const VALID_TABS = new Set(['messages', 'contacts', 'settings']);
+const VALID_TABS = new Set(['messages', 'contacts', 'calls', 'settings']);
 
 function getView(tab, conversationId, settingsSection) {
   return {
@@ -59,12 +59,11 @@ const SearchModal = dynamic(
   () => import('../components/SearchModal').then((module) => module.SearchModal),
   { ssr: false }
 );
-const HelpModal = dynamic(
-  () => import('../components/HelpModal').then((module) => module.HelpModal),
-  { ssr: false }
-);
 const ContactsView = dynamic(() =>
   import('../components/ContactsView').then((module) => module.ContactsView)
+);
+const CallsView = dynamic(() =>
+  import('../components/CallsView').then((module) => module.CallsView)
 );
 const SettingsView = dynamic(() =>
   import('../components/SettingsView').then((module) => module.SettingsView)
@@ -74,7 +73,6 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState('messages');
   const [activeSettingsSection, setActiveSettingsSection] = useState(null);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const auth = useAuth();
   const theme = useTheme();
   const chat = useConversations(auth);
@@ -92,10 +90,7 @@ export default function Home() {
   } = chat;
   const { activeCall, endActiveCall } = calls;
   const { handleLogout: logout } = auth;
-  const openSearch = useCallback(() => setIsSearchOpen(true), []);
-  const openHelp = useCallback(() => setIsHelpOpen(true), []);
   const closeSearch = useCallback(() => setIsSearchOpen(false), []);
-  const closeHelp = useCallback(() => setIsHelpOpen(false), []);
   const selectTab = useCallback((tab) => {
     setActiveTab(tab);
     if (tab !== 'settings') setActiveSettingsSection(null);
@@ -197,7 +192,7 @@ export default function Home() {
       const requestedTab = params.get('tab');
       const requestedConversation = params.get('conversation');
 
-      if (['messages', 'contacts', 'settings'].includes(requestedTab)) {
+      if (['messages', 'contacts', 'calls', 'settings'].includes(requestedTab)) {
         selectTab(requestedTab);
       }
       if (requestedConversation) {
@@ -276,8 +271,6 @@ export default function Home() {
       <Sidebar
         activeTab={activeTab}
         setActiveTab={selectTab}
-        onOpenSearch={openSearch}
-        onOpenHelp={openHelp}
         currentUser={auth.currentUser}
         hideOnMobile={activeTab === 'messages' && !!chat.activeConversationId}
       />
@@ -321,6 +314,14 @@ export default function Home() {
         />
       )}
 
+      {activeTab === 'calls' && (
+        <CallsView
+          conversations={chat.conversations}
+          currentUser={auth.currentUser}
+          onStartCall={calls.startCall}
+        />
+      )}
+
       {activeTab === 'settings' && (
         <SettingsView
           currentUser={auth.currentUser}
@@ -343,8 +344,6 @@ export default function Home() {
           onSelectConversation={handleSearchSelection}
         />
       )}
-      {isHelpOpen && <HelpModal isOpen onClose={closeHelp} />}
-
       {calls.incomingCall && (
         <IncomingCall
           call={calls.incomingCall}

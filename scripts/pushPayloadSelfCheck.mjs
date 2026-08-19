@@ -29,7 +29,7 @@ const message = normalizePushPayload({
 });
 assert.strictEqual(message.title, 'Wave');
 assert.strictEqual(message.body, '1 new message');
-assert.strictEqual(message.badge, '/wave-badge.png');
+assert.strictEqual('badge' in message, false);
 assert.strictEqual('icon' in message, false);
 assert.strictEqual(message.tag, 'conversation-c1');
 assert.strictEqual(message.conversationId, 'c1');

@@ -16,7 +16,6 @@ const SHELL_ASSETS = [
   OFFLINE_URL,
   '/manifest.webmanifest',
   '/wave-192.png',
-  '/wave-badge.png',
 ];
 
 /* ------------------------------------------------------------------ */
@@ -320,7 +319,6 @@ function normalizePushPayload(payload) {
       kind === 'message'
         ? '1 new message'
         : notification.body || payload.body || 'You have a new notification',
-    badge: '/wave-badge.png',
     tag: notification.tag || payload.tag || 'pingme-message',
     // FCM serializes every data value to a string, so compare as one.
     requireInteraction:
@@ -374,7 +372,6 @@ self.addEventListener('push', (event) => {
 
       await self.registration.showNotification(display.title, {
         body: display.body,
-        badge: push.badge,
         tag: push.tag,
         renotify: true,
         // A ringing call should stay up until it is answered or it times out.

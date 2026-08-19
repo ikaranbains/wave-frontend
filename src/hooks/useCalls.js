@@ -100,10 +100,10 @@ export function useCalls({ currentUser, isBackendConnected, activeConversation }
   useEffect(() => () => stopRingtone(), []);
 
   const startCall = useCallback(
-    async (type) => {
-      if (!activeConversation || activeCall || incomingCall) return;
+    async (type, conversation = activeConversation) => {
+      if (!conversation || activeCall || incomingCall) return;
       setCallNotice('');
-      const response = await inviteCall(activeConversation.id, type);
+      const response = await inviteCall(conversation.id, type);
       if (!response.ok) {
         setCallNotice(response.error || 'Unable to start the call');
         return;
@@ -111,7 +111,7 @@ export function useCalls({ currentUser, isBackendConnected, activeConversation }
       applyActiveCall({
         ...response.call,
         direction: 'outgoing',
-        contact: activeConversation.contact,
+        contact: conversation.contact,
       });
     },
     [activeCall, activeConversation, incomingCall, applyActiveCall]

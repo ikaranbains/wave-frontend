@@ -1,7 +1,7 @@
 export default function manifest() {
   return {
     id: '/',
-    name: 'Wave — Your people, a tap away.',
+    name: 'Wave',
     short_name: 'Wave',
     description:
       'A quiet little place for the people you actually want to hear from. Messages, photos, voice notes, and calls — nothing else.',

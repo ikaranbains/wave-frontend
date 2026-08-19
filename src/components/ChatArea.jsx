@@ -336,14 +336,14 @@ const MessageItem = memo(function MessageItem({
       </div>
 
       {!msg.isDeleted && (
-        <div className="relative self-center opacity-70 transition-opacity md:opacity-0 md:group-hover/msg:opacity-100">
+        <div className="relative self-center">
           <button
             type="button"
             onClick={(event) => {
               event.stopPropagation();
               onToggleMenu(msg.id);
             }}
-            className="p-1.5 rounded-full text-outline hover:text-on-surface hover:bg-surface-container-high transition-colors cursor-pointer"
+            className="p-1.5 rounded-full text-outline opacity-70 transition-all hover:text-on-surface hover:bg-surface-container-high md:opacity-0 md:group-hover/msg:opacity-100 cursor-pointer"
             title="Message options"
             aria-label="Message options"
           >
