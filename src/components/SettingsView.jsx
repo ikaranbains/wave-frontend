@@ -16,6 +16,7 @@ import {
   AlertCircle,
   LoaderCircle,
   LogOut,
+  RefreshCw,
   Smartphone,
   Sun,
   Moon,
@@ -26,7 +27,13 @@ import {
 import { updateSettingsApi, uploadAvatarApi } from '../services/api';
 import { usePushNotifications } from '../hooks/usePushNotifications';
 import { getCloudinaryThumbnail, isRealAvatar } from '../utils/avatarUtils';
-import { isStandaloneDisplay } from './InstallPrompt';
+import {
+  INSTALL_REQUEST_EVENT,
+  INSTALL_STATUS_EVENT,
+  INSTALL_STATUS_REQUEST_EVENT,
+  isStandaloneDisplay,
+} from './InstallPrompt';
+import { UPDATE_REQUEST_EVENT, UPDATE_STATUS_EVENT } from './PwaRegistrar';
 
 const SECTIONS = [
   { key: 'profile', icon: User, label: 'Profile & Account' },
@@ -50,11 +57,55 @@ export const SettingsView = memo(function SettingsView({
   const section = activeSection || 'profile';
   const push = usePushNotifications();
   const [isInstalled, setIsInstalled] = useState(true);
+  const [canInstall, setCanInstall] = useState(false);
+  const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
 
-  // Resolved after mount: display-mode is unknown while rendering on the server.
   useEffect(() => {
     setIsInstalled(isStandaloneDisplay());
+
+    const handleInstallStatus = (event) => {
+      setIsInstalled(Boolean(event.detail?.isInstalled));
+      setCanInstall(Boolean(event.detail?.canInstall));
+    };
+    const handleInstalled = () => {
+      setIsInstalled(true);
+      setCanInstall(false);
+    };
+    const handleUpdateStatus = (event) => {
+      setIsUpdateAvailable(Boolean(event.detail?.available));
+      setIsUpdating(Boolean(event.detail?.updating));
+    };
+
+    window.addEventListener(INSTALL_STATUS_EVENT, handleInstallStatus);
+    window.addEventListener('appinstalled', handleInstalled);
+    window.addEventListener(UPDATE_STATUS_EVENT, handleUpdateStatus);
+    window.dispatchEvent(new Event(INSTALL_STATUS_REQUEST_EVENT));
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .getRegistration('/')
+        .then((registration) => {
+          if (registration?.waiting && navigator.serviceWorker.controller) {
+            setIsUpdateAvailable(true);
+          }
+          return registration?.update();
+        })
+        .catch(() => {});
+    }
+
+    return () => {
+      window.removeEventListener(INSTALL_STATUS_EVENT, handleInstallStatus);
+      window.removeEventListener('appinstalled', handleInstalled);
+      window.removeEventListener(UPDATE_STATUS_EVENT, handleUpdateStatus);
+    };
   }, []);
+
+  const installApp = () => window.dispatchEvent(new Event(INSTALL_REQUEST_EVENT));
+  const updateApp = () => {
+    setIsUpdating(true);
+    window.dispatchEvent(new Event(UPDATE_REQUEST_EVENT));
+  };
 
   // Interactive Form state
   const [displayName, setDisplayName] = useState(currentUser?.name || '');
@@ -150,11 +201,11 @@ export const SettingsView = memo(function SettingsView({
   };
 
   return (
-    <div className="flex h-full min-w-0 flex-1 select-none flex-col overflow-hidden bg-surface md:ml-[100px] md:flex-row">
+    <div className="ambient flex h-full min-w-0 flex-1 select-none flex-col overflow-hidden md:ml-[100px] md:flex-row">
       {/* Section list. On mobile this is a full screen of its own and the content
           pane replaces it once a section is picked; from md up both are visible. */}
       <div
-        className={`scroll-touch w-full min-w-0 flex-col justify-between overflow-y-auto bg-surface-container px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 md:flex md:w-64 md:flex-none md:border-r md:border-outline-variant/40 md:p-6 md:pb-6 md:pt-[calc(1.5rem+env(safe-area-inset-top))] ${
+        className={`scroll-touch w-full min-w-0 flex-col justify-between overflow-y-auto px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 md:flex md:w-64 md:flex-none md:border-r md:border-outline-variant/40 md:p-6 md:pb-6 md:pt-[calc(1.5rem+env(safe-area-inset-top))] ${
           activeSection ? 'hidden' : 'settings-list-enter flex flex-1'
         }`}
       >
@@ -183,15 +234,65 @@ export const SettingsView = memo(function SettingsView({
           </nav>
         </div>
 
-        {onLogout && (
-          <button
-            onClick={onLogout}
-            className="mt-8 flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-semibold text-red-600 transition-all active:scale-[0.98] md:mt-auto md:justify-start md:gap-3 md:border-0 md:bg-transparent md:px-3 md:py-2.5 md:text-xs md:hover:bg-red-50 md:active:scale-100"
-          >
-            <LogOut className="h-4 w-4" />
-            <span>Sign out</span>
-          </button>
-        )}
+        <div className="mt-8 space-y-2 md:mt-6">
+          {isUpdateAvailable ? (
+            <div className="flex w-full items-center gap-2 rounded-xl border border-primary/25 bg-primary/10 p-2.5 text-primary md:p-2">
+              <RefreshCw className={`h-4 w-4 flex-shrink-0 ${isUpdating ? 'animate-spin' : ''}`} />
+              <span className="min-w-0 flex-1 text-left">
+                <span className="block text-xs font-semibold">New version available</span>
+                <span className="block text-[10px] text-on-surface-variant">
+                  {isUpdating ? 'Updating Wave…' : 'Install it now'}
+                </span>
+              </span>
+              <button
+                type="button"
+                onClick={updateApp}
+                disabled={isUpdating}
+                className="flex-shrink-0 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-bold text-white transition-transform active:scale-95 disabled:opacity-60"
+              >
+                {isUpdating ? 'Installing…' : 'Install'}
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={installApp}
+              disabled={isInstalled || !canInstall}
+              className="flex w-full items-center gap-2 rounded-xl border border-outline-variant/50 bg-white px-3 py-2.5 text-left text-on-surface-variant transition-all active:scale-[0.98] disabled:cursor-default disabled:opacity-65 md:border-0 md:bg-transparent md:active:scale-100"
+            >
+              {isInstalled ? (
+                <Check className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+              ) : (
+                <Smartphone className="h-4 w-4 flex-shrink-0 text-primary" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs font-semibold">
+                  {isInstalled ? 'Installed' : 'Install app'}
+                </span>
+                {!isInstalled && !canInstall && (
+                  <span className="block text-[10px] text-outline">
+                    Install from your browser menu
+                  </span>
+                )}
+              </span>
+              {!isInstalled && canInstall && (
+                <span className="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-bold text-white">
+                  Install
+                </span>
+              )}
+            </button>
+          )}
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-semibold text-red-600 transition-all active:scale-[0.98] md:justify-start md:gap-3 md:border-0 md:bg-transparent md:px-3 md:py-2.5 md:text-xs md:hover:bg-red-50 md:active:scale-100"
+            >
+              <LogOut className="h-4 w-4" />
+              <span>Sign out</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Content Form Area */}

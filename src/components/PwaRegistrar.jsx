@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
 
 const UPDATE_CHECK_INTERVAL = 60 * 60 * 1000;
+export const UPDATE_REQUEST_EVENT = 'wave:request-update';
+export const UPDATE_STATUS_EVENT = 'wave:update-status';
 
 export function PwaRegistrar() {
   const [waitingWorker, setWaitingWorker] = useState(null);
@@ -122,27 +123,15 @@ export function PwaRegistrar() {
     waitingWorker.postMessage({ type: 'PINGME_SKIP_WAITING' });
   }, [waitingWorker]);
 
-  if (!waitingWorker) return null;
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent(UPDATE_STATUS_EVENT, {
+        detail: { available: Boolean(waitingWorker), updating: isReloading },
+      })
+    );
+    window.addEventListener(UPDATE_REQUEST_EVENT, applyUpdate);
+    return () => window.removeEventListener(UPDATE_REQUEST_EVENT, applyUpdate);
+  }, [applyUpdate, isReloading, waitingWorker]);
 
-  return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[130] flex justify-center px-4 md:bottom-6">
-      <div className="pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-2xl border border-outline-variant/60 bg-white/95 p-3 shadow-2xl backdrop-blur">
-        <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-secondary-container text-primary">
-          <RefreshCw className={`h-4 w-4 ${isReloading ? 'animate-spin' : ''}`} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold text-on-surface">A new version is ready</p>
-          <p className="text-[11px] text-outline">Reload to get the latest version.</p>
-        </div>
-        <button
-          type="button"
-          onClick={applyUpdate}
-          disabled={isReloading}
-          className="flex-shrink-0 rounded-xl bg-primary px-3 py-2 text-xs font-semibold text-white transition-transform active:scale-95 disabled:opacity-60"
-        >
-          {isReloading ? 'Updating…' : 'Reload'}
-        </button>
-      </div>
-    </div>
-  );
+  return null;
 }

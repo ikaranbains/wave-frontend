@@ -1,9 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Download, Share, X } from 'lucide-react';
 
 const DISMISS_STORAGE_KEY = 'pingme:install-dismissed';
+export const INSTALL_REQUEST_EVENT = 'wave:request-install';
+export const INSTALL_STATUS_REQUEST_EVENT = 'wave:request-install-status';
+export const INSTALL_STATUS_EVENT = 'wave:install-status';
+
+function emitInstallStatus(canInstall) {
+  window.dispatchEvent(
+    new CustomEvent(INSTALL_STATUS_EVENT, {
+      detail: { canInstall, isInstalled: isStandaloneDisplay() },
+    })
+  );
+}
 
 export function isStandaloneDisplay() {
   if (typeof window === 'undefined') return false;
@@ -20,13 +31,33 @@ export function isStandaloneDisplay() {
  * Add-to-Home-Screen instructions instead.
  */
 export function InstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const deferredPromptRef = useRef(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
 
+  const dismiss = useCallback(() => {
+    window.localStorage.setItem(DISMISS_STORAGE_KEY, '1');
+    setIsVisible(false);
+  }, []);
+
+  const install = useCallback(async () => {
+    const deferredPrompt = deferredPromptRef.current;
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPromptRef.current = null;
+    emitInstallStatus(false);
+    if (outcome === 'accepted') setIsVisible(false);
+    else dismiss();
+  }, [dismiss]);
+
   useEffect(() => {
-    if (isStandaloneDisplay()) return undefined;
-    if (window.localStorage.getItem(DISMISS_STORAGE_KEY) === '1') return undefined;
+    if (isStandaloneDisplay()) {
+      emitInstallStatus(false);
+      return undefined;
+    }
+
+    const isDismissed = window.localStorage.getItem(DISMISS_STORAGE_KEY) === '1';
 
     // Platform sniffing happens after mount, applied on a microtask so the first
     // render stays identical to the server output.
@@ -38,41 +69,35 @@ export function InstallPrompt() {
       const isSafari = /^((?!chrome|android|crios|fxios).)*safari/i.test(navigator.userAgent);
 
       setIsIOS(iosDevice && isSafari);
-      if (iosDevice && isSafari) setIsVisible(true);
+      if (iosDevice && isSafari && !isDismissed) setIsVisible(true);
     };
     detectPlatform();
 
     const handleBeforeInstallPrompt = (event) => {
       event.preventDefault();
-      setDeferredPrompt(event);
-      setIsVisible(true);
+      deferredPromptRef.current = event;
+      if (!isDismissed) setIsVisible(true);
+      emitInstallStatus(true);
     };
     const handleInstalled = () => {
       setIsVisible(false);
-      setDeferredPrompt(null);
+      deferredPromptRef.current = null;
+      emitInstallStatus(false);
     };
+    const handleStatusRequest = () => emitInstallStatus(Boolean(deferredPromptRef.current));
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleInstalled);
+    window.addEventListener(INSTALL_REQUEST_EVENT, install);
+    window.addEventListener(INSTALL_STATUS_REQUEST_EVENT, handleStatusRequest);
+    queueMicrotask(handleStatusRequest);
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleInstalled);
+      window.removeEventListener(INSTALL_REQUEST_EVENT, install);
+      window.removeEventListener(INSTALL_STATUS_REQUEST_EVENT, handleStatusRequest);
     };
-  }, []);
-
-  const dismiss = useCallback(() => {
-    window.localStorage.setItem(DISMISS_STORAGE_KEY, '1');
-    setIsVisible(false);
-  }, []);
-
-  const install = useCallback(async () => {
-    if (!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
-    if (outcome === 'accepted') setIsVisible(false);
-    else dismiss();
-  }, [deferredPrompt, dismiss]);
+  }, [install]);
 
   if (!isVisible) return null;
 

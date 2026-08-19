@@ -747,7 +747,7 @@ export const ChatArea = memo(function ChatArea({
 
   if (!conversation) {
     return (
-      <main className="hidden h-full flex-1 items-center justify-center bg-white md:flex">
+      <main className="ambient hidden h-full flex-1 items-center justify-center md:flex">
         <div className="max-w-sm px-6 text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary-container text-primary">
             <MessageSquare className="h-7 w-7" />
@@ -762,7 +762,7 @@ export const ChatArea = memo(function ChatArea({
   }
 
   return (
-    <main className="flex flex-1 bg-white h-full relative overflow-hidden">
+    <main className="ambient flex flex-1 h-full relative overflow-hidden">
       {/* Primary Chat Window */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Navigation Header */}

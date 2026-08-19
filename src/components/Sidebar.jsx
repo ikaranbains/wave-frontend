@@ -42,7 +42,7 @@ export const Sidebar = memo(function Sidebar({
       </button>
 
       {/* Primary Navigation Links */}
-      <nav className="flex flex-row md:flex-col gap-1 md:gap-3 flex-1 items-center justify-around md:justify-start">
+      <nav className="flex w-3/4 flex-none flex-row items-center justify-around gap-1 md:w-auto md:flex-1 md:flex-col md:justify-start md:gap-3">
         {/* Messages */}
         <button
           onClick={() => setActiveTab('messages')}
@@ -76,7 +76,7 @@ export const Sidebar = memo(function Sidebar({
       </nav>
 
       {/* Profile */}
-      <div className="flex flex-row md:flex-col gap-1 md:gap-3 items-center md:mt-auto">
+      <div className="flex w-1/4 flex-none flex-row items-center justify-center gap-1 md:mt-auto md:w-auto md:flex-col md:gap-3">
         <div className="md:mt-2 relative">
           <button
             type="button"

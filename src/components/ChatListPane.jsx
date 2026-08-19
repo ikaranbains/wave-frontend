@@ -29,7 +29,7 @@ export const ChatListPane = memo(function ChatListPane({
 
   return (
     <section
-      className={`${hideOnMobile ? 'hidden' : 'flex'} md:flex md:ml-[100px] w-full md:w-[280px] h-full bg-surface-container md:border-r border-outline-variant/40 flex-col flex-shrink-0 select-none`}
+      className={`${hideOnMobile ? 'hidden' : 'flex'} ambient md:flex md:ml-[100px] w-full md:w-[280px] h-full md:border-r border-outline-variant/40 flex-col flex-shrink-0 select-none`}
     >
       {/* Header & Search Bar */}
       <div className="p-4 pt-[calc(1rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(1.5rem+env(safe-area-inset-top))]">
