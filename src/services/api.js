@@ -206,6 +206,7 @@ export async function getPushPublicKeyApi() {
   }
 }
 
+
 export async function savePushTokenApi(token) {
   try {
     const response = await apiClient.post('/push/subscribe', { token });
@@ -224,11 +225,11 @@ export async function deletePushTokenApi(token) {
   }
 }
 
-export async function getCallTokenApi(conversationId) {
+export async function getCallHistoryApi() {
   try {
-    const response = await apiClient.post('/calls/token', { conversationId });
+    const response = await apiClient.get('/calls/history');
     return response.data;
   } catch (error) {
-    throw new Error(getApiErrorMessage(error, 'Failed to join the call'));
+    throw new Error(getApiErrorMessage(error, 'Failed to fetch call history'));
   }
 }

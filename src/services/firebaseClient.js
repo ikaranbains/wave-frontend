@@ -13,7 +13,11 @@ const firebaseConfig = {
 /** Messaging is the only Firebase product Wave uses, so these are all it needs. */
 export function isFirebaseConfigured() {
   return Boolean(
-    firebaseConfig.apiKey && firebaseConfig.projectId && firebaseConfig.messagingSenderId
+    firebaseConfig.apiKey &&
+      firebaseConfig.authDomain &&
+      firebaseConfig.projectId &&
+      firebaseConfig.messagingSenderId &&
+      firebaseConfig.appId
   );
 }
 

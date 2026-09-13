@@ -48,14 +48,31 @@ export function connectSocket() {
 }
 
 export function disconnectSocket() {
-  joinedConversationId = null;
-  socket?.disconnect();
+  if (socket) {
+    socket.disconnect();
+  }
 }
 
-export function reconnectSocket() {
+// HTTP authentication and the realtime connection have separate lifecycles.
+// Consumers that depend on live events (calls, typing, presence) must use the
+// actual Socket.IO state rather than assuming a successful API request means
+// the socket has already connected.
+export function onSocketConnectionChange(callback) {
   const s = getSocket();
-  if (s.connected) s.disconnect();
-  s.connect();
+  const handleConnect = () => callback(true);
+  const handleDisconnect = () => callback(false);
+  const handleConnectError = () => callback(false);
+
+  s.on('connect', handleConnect);
+  s.on('disconnect', handleDisconnect);
+  s.on('connect_error', handleConnectError);
+  callback(s.connected);
+
+  return () => {
+    s.off('connect', handleConnect);
+    s.off('disconnect', handleDisconnect);
+    s.off('connect_error', handleConnectError);
+  };
 }
 
 export function joinConversationRoom(conversationId) {
@@ -151,6 +168,7 @@ export function emitDeleteMessage(data) {
 export function onMessageDeleted(callback) {
   const s = getSocket();
   s.on('message_deleted', callback);
+
   return () => {
     s.off('message_deleted', callback);
   };
@@ -212,6 +230,17 @@ export function onIncomingCall(callback) {
   return subscribeToSocketEvent('incoming_call', callback);
 }
 
+// Ask for an invite that began while this PWA was suspended or loading. The
+// request is sent after the UI listener has mounted, avoiding a lost event on
+// a fast reconnect.
+export function syncPendingCall() {
+  const s = getSocket();
+  const sync = () => s.emit('call_sync');
+  s.on('connect', sync);
+  if (s.connected) sync();
+  return () => s.off('connect', sync);
+}
+
 export function onCallAccepted(callback) {
   return subscribeToSocketEvent('call_accepted', callback);
 }
@@ -222,4 +251,15 @@ export function onCallDeclined(callback) {
 
 export function onCallEnded(callback) {
   return subscribeToSocketEvent('call_ended', callback);
+}
+
+export function emitWebRTCSignal(payload) {
+  const s = getSocket();
+  if (s.connected) {
+    s.emit('webrtc_signal', payload);
+  }
+}
+
+export function onWebRTCSignal(callback) {
+  return subscribeToSocketEvent('webrtc_signal', callback);
 }

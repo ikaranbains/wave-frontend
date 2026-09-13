@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-import Image from 'next/image';
+import React, { useState } from 'react';
 import { Search, X, MessageSquare, User } from 'lucide-react';
-import { getCloudinaryThumbnail, getInitials, isRealAvatar } from '../utils/avatarUtils';
+import { Avatar } from './Avatar';
 
 export const SearchModal = ({
   isOpen,
@@ -91,19 +90,11 @@ export const SearchModal = ({
                         className="flex items-center justify-between p-2 rounded-xl hover:bg-surface-container-low cursor-pointer"
                       >
                         <div className="flex items-center gap-3">
-                          {isRealAvatar(c.avatar) ? (
-                            <Image
-                              src={getCloudinaryThumbnail(c.avatar, 64)}
-                              alt={c.name}
-                              width={32}
-                              height={32}
-                              className="h-8 w-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary-container text-xs font-bold text-primary select-none">
-                              {getInitials(c.name)}
-                            </span>
-                          )}
+                          <Avatar
+                            src={c.avatar}
+                            name={c.name}
+                            size={32}
+                          />
                           <div>
                             <p className="text-xs font-semibold text-on-surface">{c.name}</p>
                             <p className="text-[10px] text-outline">{c.email}</p>

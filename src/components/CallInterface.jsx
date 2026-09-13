@@ -1,49 +1,27 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
+import { Avatar } from './Avatar';
 import {
+  ChevronDown,
   Headphones,
   LoaderCircle,
+  Maximize2,
   Mic,
   MicOff,
+  Minimize2,
   Phone,
   PhoneOff,
   Video,
   VideoOff,
   Volume2,
 } from 'lucide-react';
-import { getCallTokenApi } from '../services/api';
-import { getCloudinaryThumbnail } from '../utils/avatarUtils';
+import { emitWebRTCSignal, onWebRTCSignal } from '../services/socket';
 
 function formatDuration(totalSeconds) {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-}
-
-function ControlButton({ onClick, disabled, active, label, children, tone }) {
-  return (
-    <div className="flex w-16 flex-col items-center gap-1.5">
-      <button
-        type="button"
-        onClick={onClick}
-        disabled={disabled}
-        aria-label={label}
-        aria-pressed={active === undefined ? undefined : active}
-        className={`flex h-14 w-14 items-center justify-center rounded-full transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${
-          tone === 'danger'
-            ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 hover:bg-red-600'
-            : active
-              ? 'bg-white text-slate-900'
-              : 'bg-white/12 text-white ring-1 ring-white/15 hover:bg-white/20'
-        }`}
-      >
-        {children}
-      </button>
-      <span className="text-[11px] font-medium text-white/60">{label}</span>
-    </div>
-  );
 }
 
 export function IncomingCall({ call, onAccept, onDecline }) {
@@ -56,19 +34,13 @@ export function IncomingCall({ call, onAccept, onDecline }) {
       <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-900 p-7 text-center text-white shadow-2xl">
         <div className="relative mx-auto mb-4 w-fit">
           <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
-          {call.caller?.avatar ? (
-            <Image
-              src={getCloudinaryThumbnail(call.caller.avatar, 192)}
-              alt={call.caller?.name || 'Caller'}
-              width={96}
-              height={96}
-              className="relative h-24 w-24 rounded-full border-4 border-slate-800 object-cover"
-            />
-          ) : (
-            <span className="relative flex h-24 w-24 items-center justify-center rounded-full border-4 border-slate-800 bg-slate-700 text-3xl font-semibold">
-              {call.caller?.name?.charAt(0)?.toUpperCase() || '?'}
-            </span>
-          )}
+          <Avatar
+            src={call.caller?.avatar}
+            name={call.caller?.name || 'Caller'}
+            size={96}
+            className="relative border-4 border-slate-800 shadow-xl"
+            fallbackClassName="text-3xl"
+          />
         </div>
 
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
@@ -103,11 +75,53 @@ export function IncomingCall({ call, onAccept, onDecline }) {
   );
 }
 
-export function CallInterface({ call, onEnd }) {
-  const roomRef = useRef(null);
+function ControlButton({ onClick, disabled, active, label, children, tone }) {
+  return (
+    <div className="flex w-14 sm:w-16 flex-col items-center gap-1">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-label={label}
+        title={label}
+        aria-pressed={active === undefined ? undefined : active}
+        className={`flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-full transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${
+          tone === 'danger'
+            ? 'bg-red-600 text-white shadow-lg shadow-red-600/40 hover:bg-red-700'
+            : active
+            ? 'bg-white/15 text-white ring-1 ring-white/20 hover:bg-white/25 backdrop-blur-md'
+            : 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/40 hover:bg-rose-500/30'
+        }`}
+      >
+        {children}
+      </button>
+      <span className="text-[10px] sm:text-[11px] font-medium text-white/70 truncate max-w-full">{label}</span>
+    </div>
+  );
+}
+
+export function CallInterface({
+  call,
+  onEnd,
+  isMinimized = false,
+  onMinimize,
+  onMaximize,
+}) {
+  const peerConnectionRef = useRef(null);
+  const localStreamRef = useRef(null);
+  const remoteStreamRef = useRef(null);
+  const iceCandidatesQueueRef = useRef([]);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const remoteAudioRef = useRef(null);
+  const pipContainerRef = useRef(null);
+  const pipLocalVideoRef = useRef(null);
+  const pipRemoteVideoRef = useRef(null);
+  const isDraggingRef = useRef(false);
+  const dragStartPosRef = useRef({ x: 0, y: 0 });
+  const pipStartPosRef = useRef({ x: 0, y: 0 });
+  const hasMovedRef = useRef(false);
+
   const [connectionStatus, setConnectionStatus] = useState(
     call.status === 'ringing' ? 'ringing' : 'connecting'
   );
@@ -115,10 +129,160 @@ export function CallInterface({ call, onEnd }) {
   const [isCameraEnabled, setIsCameraEnabled] = useState(call.type === 'video');
   const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
   const [canPlayAudio, setCanPlayAudio] = useState(true);
+  const [selectedSinkId, setSelectedSinkId] = useState('');
   const [callDuration, setCallDuration] = useState(0);
   const [callError, setCallError] = useState('');
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const isVideoCall = call.type === 'video';
+
+  // Ensure both local and remote video streams are attached and actively playing in stage or PiP
+  useEffect(() => {
+    if (isMinimized && isVideoCall) {
+      if (pipRemoteVideoRef.current && remoteStreamRef.current) {
+        if (pipRemoteVideoRef.current.srcObject !== remoteStreamRef.current) {
+          pipRemoteVideoRef.current.srcObject = remoteStreamRef.current;
+        }
+        pipRemoteVideoRef.current.play?.().catch(() => {});
+      }
+      if (pipLocalVideoRef.current && localStreamRef.current) {
+        if (pipLocalVideoRef.current.srcObject !== localStreamRef.current) {
+          pipLocalVideoRef.current.srcObject = localStreamRef.current;
+        }
+        pipLocalVideoRef.current.play?.().catch(() => {});
+      }
+    } else if (!isMinimized) {
+      if (localVideoRef.current && localStreamRef.current) {
+        if (localVideoRef.current.srcObject !== localStreamRef.current) {
+          localVideoRef.current.srcObject = localStreamRef.current;
+        }
+        localVideoRef.current.play?.().catch(() => {});
+      }
+      if (remoteVideoRef.current && remoteStreamRef.current) {
+        if (remoteVideoRef.current.srcObject !== remoteStreamRef.current) {
+          remoteVideoRef.current.srcObject = remoteStreamRef.current;
+        }
+        remoteVideoRef.current.play?.().catch(() => {});
+      }
+    }
+  }, [hasRemoteVideo, isCameraEnabled, isMinimized, isVideoCall]);
+
+  // Set initial position for floating PiP when entering minimized state
+  useEffect(() => {
+    if (isMinimized && isVideoCall && pipContainerRef.current) {
+      if (!pipContainerRef.current.style.top) {
+        const isMobile = window.innerWidth < 768;
+        const initialTop = 68; // Just below WhatsApp top bar
+        const initialLeft = isMobile ? 16 : Math.max(window.innerWidth - 180, 16);
+        pipContainerRef.current.style.top = `${initialTop}px`;
+        pipContainerRef.current.style.left = `${initialLeft}px`;
+      }
+    }
+  }, [isMinimized, isVideoCall]);
+
+  // Keep floating PiP inside screen boundaries on window resize
+  useEffect(() => {
+    if (!isMinimized || !isVideoCall) return undefined;
+
+    const handleResize = () => {
+      const el = pipContainerRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const maxX = window.innerWidth - el.offsetWidth - 12;
+      const maxY = window.innerHeight - el.offsetHeight - 12;
+      const clampedX = Math.min(Math.max(rect.left, 12), Math.max(maxX, 12));
+      const clampedY = Math.min(Math.max(rect.top, 56), Math.max(maxY, 56));
+      el.style.left = `${clampedX}px`;
+      el.style.top = `${clampedY}px`;
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isMinimized, isVideoCall]);
+
+  const handlePointerDown = (e) => {
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    const el = pipContainerRef.current;
+    if (!el) return;
+
+    isDraggingRef.current = true;
+    hasMovedRef.current = false;
+    dragStartPosRef.current = { x: e.clientX, y: e.clientY };
+    const rect = el.getBoundingClientRect();
+    pipStartPosRef.current = { x: rect.left, y: rect.top };
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
+
+  const handlePointerMove = (e) => {
+    if (!isDraggingRef.current) return;
+    const dx = e.clientX - dragStartPosRef.current.x;
+    const dy = e.clientY - dragStartPosRef.current.y;
+
+    if (Math.hypot(dx, dy) > 6) {
+      hasMovedRef.current = true;
+    }
+
+    const el = pipContainerRef.current;
+    if (!el) return;
+
+    const minX = 8;
+    const maxX = window.innerWidth - el.offsetWidth - 8;
+    const minY = 56;
+    const maxY = window.innerHeight - el.offsetHeight - 8;
+
+    const nextX = Math.min(Math.max(pipStartPosRef.current.x + dx, minX), Math.max(maxX, minX));
+    const nextY = Math.min(Math.max(pipStartPosRef.current.y + dy, minY), Math.max(maxY, minY));
+
+    el.style.left = `${nextX}px`;
+    el.style.top = `${nextY}px`;
+  };
+
+  const handlePointerUp = (e) => {
+    if (!isDraggingRef.current) return;
+    isDraggingRef.current = false;
+
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {}
+
+    if (!hasMovedRef.current) {
+      onMaximize?.();
+    }
+  };
+
+  // Handle mobile / browser back button to minimize call instead of exiting app
+  useEffect(() => {
+    if (isMinimized) return undefined;
+
+    window.history.pushState({ waveCallFullscreen: true }, '');
+
+    const handlePopState = () => {
+      onMinimize?.();
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [isMinimized, onMinimize]);
+
+  const handleMinimize = useCallback(() => {
+    if (window.history.state?.waveCallFullscreen) {
+      window.history.back();
+    } else {
+      onMinimize?.();
+    }
+  }, [onMinimize]);
+
+  const handleEnd = useCallback(() => {
+    if (window.history.state?.waveCallFullscreen) {
+      window.history.back();
+    }
+    onEnd?.();
+  }, [onEnd]);
 
   useEffect(() => {
     if (call.status === 'ringing') {
@@ -126,115 +290,170 @@ export function CallInterface({ call, onEnd }) {
     }
 
     let cancelled = false;
-    let room = null;
-    const remoteAudioContainer = remoteAudioRef.current;
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+      ],
+    });
+    peerConnectionRef.current = pc;
+    iceCandidatesQueueRef.current = [];
 
-    async function setupCall() {
-      setConnectionStatus('connecting');
-      setCallError('');
-
-      try {
-        // Loaded on demand. livekit-client is ~700KB of WebRTC SDK and only a
-        // real call needs it, so keeping it out of the initial bundle saves
-        // every user who never places one the download and the parse cost.
-        const { Room, RoomEvent, Track } = await import('livekit-client');
-        if (cancelled) return;
-
-        room = new Room({
-          adaptiveStream: true,
-          dynacast: true,
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        emitWebRTCSignal({
+          callId: call.callId,
+          signal: { type: 'candidate', candidate: event.candidate.toJSON() },
         });
-        roomRef.current = room;
+      }
+    };
 
-        const handleTrackSubscribed = (track) => {
-          if (track.kind === Track.Kind.Video && remoteVideoRef.current) {
-            track.attach(remoteVideoRef.current);
-            setHasRemoteVideo(true);
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'connected') {
+        setConnectionStatus('connected');
+        setCallError('');
+      } else if (pc.connectionState === 'failed') {
+        setCallError('Connection lost. Reconnecting...');
+        setConnectionStatus('connecting');
+      } else if (pc.connectionState === 'disconnected') {
+        setConnectionStatus('disconnected');
+      }
+    };
+
+    pc.ontrack = (event) => {
+      let stream = remoteStreamRef.current;
+      if (!stream) {
+        stream = event.streams[0] || new MediaStream();
+        remoteStreamRef.current = stream;
+      }
+      if (!stream.getTracks().includes(event.track)) {
+        stream.addTrack(event.track);
+      }
+
+      if (remoteVideoRef.current) {
+        remoteVideoRef.current.srcObject = stream;
+        remoteVideoRef.current.play?.().catch(() => {});
+      }
+      if (pipRemoteVideoRef.current) {
+        pipRemoteVideoRef.current.srcObject = stream;
+        pipRemoteVideoRef.current.play?.().catch(() => {});
+      }
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = stream;
+        remoteAudioRef.current.play?.().catch(() => {});
+      }
+
+      if (event.track.kind === 'video') {
+        setHasRemoteVideo(true);
+        event.track.onmute = () => setHasRemoteVideo(false);
+        event.track.onunmute = () => setHasRemoteVideo(true);
+        event.track.onended = () => setHasRemoteVideo(false);
+      }
+    };
+
+    let resolveMedia;
+    const mediaReady = new Promise((resolve) => {
+      resolveMedia = resolve;
+    });
+
+    const unsubscribeSignal = onWebRTCSignal(async ({ callId, signal }) => {
+      if (callId !== call.callId || !signal) return;
+      try {
+        if (signal.type === 'offer') {
+          await mediaReady;
+          await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          while (iceCandidatesQueueRef.current.length > 0) {
+            const cand = iceCandidatesQueueRef.current.shift();
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
           }
-
-          if (track.kind === Track.Kind.Audio && remoteAudioContainer) {
-            const audioElement = track.attach();
-            audioElement.autoplay = true;
-            if (sinkIdRef.current) {
-              audioElement.setSinkId?.(sinkIdRef.current).catch(() => {});
-            }
-            remoteAudioContainer.appendChild(audioElement);
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          emitWebRTCSignal({ callId: call.callId, signal: answer });
+        } else if (signal.type === 'answer') {
+          await pc.setRemoteDescription(new RTCSessionDescription(signal));
+          while (iceCandidatesQueueRef.current.length > 0) {
+            const cand = iceCandidatesQueueRef.current.shift();
+            await pc.addIceCandidate(new RTCIceCandidate(cand));
           }
-        };
-
-        const handleTrackUnsubscribed = (track) => {
-          if (track.kind === Track.Kind.Video) {
-            if (remoteVideoRef.current) track.detach(remoteVideoRef.current);
-            setHasRemoteVideo(false);
+        } else if (signal.type === 'candidate' && signal.candidate) {
+          if (pc.remoteDescription && pc.remoteDescription.type) {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
           } else {
-            track.detach().forEach((element) => element.remove());
+            iceCandidatesQueueRef.current.push(signal.candidate);
           }
-        };
+        }
+      } catch (err) {
+        console.warn('WebRTC signal handling warning:', err);
+      }
+    });
 
-        room
-          .on(RoomEvent.TrackSubscribed, handleTrackSubscribed)
-          .on(RoomEvent.TrackUnsubscribed, handleTrackUnsubscribed)
-          .on(RoomEvent.ParticipantDisconnected, () => setHasRemoteVideo(false))
-          .on(RoomEvent.AudioPlaybackStatusChanged, () => {
-            setCanPlayAudio(room.canPlaybackAudio);
-          })
-          .on(RoomEvent.Disconnected, () => {
-            if (!cancelled) setConnectionStatus('disconnected');
-          });
+    async function startMediaAndCall() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: isVideoCall
+            ? { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }
+            : false,
+        });
 
-        const { token, url } = await getCallTokenApi(call.conversationId);
-        if (cancelled) return;
-
-        await room.connect(url, token);
         if (cancelled) {
-          room.disconnect();
+          stream.getTracks().forEach((t) => t.stop());
           return;
         }
 
-        setConnectionStatus('connected');
-        setCanPlayAudio(room.canPlaybackAudio);
+        localStreamRef.current = stream;
 
-        try {
-          await room.localParticipant.setMicrophoneEnabled(true);
-          setIsMicEnabled(true);
-        } catch {
-          setIsMicEnabled(false);
-          setCallError('Microphone access was blocked. Allow it in your browser to speak.');
+        // Apply initial mic & camera states
+        stream.getAudioTracks().forEach((t) => {
+          t.enabled = isMicEnabled;
+        });
+        stream.getVideoTracks().forEach((t) => {
+          t.enabled = isCameraEnabled;
+        });
+
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.play?.().catch(() => {});
+        }
+        if (pipLocalVideoRef.current) {
+          pipLocalVideoRef.current.srcObject = stream;
+          pipLocalVideoRef.current.play?.().catch(() => {});
         }
 
-        if (isVideoCall) {
-          try {
-            await room.localParticipant.setCameraEnabled(true);
-            const cameraPublication = room.localParticipant.getTrackPublication(
-              Track.Source.Camera
-            );
-            if (localVideoRef.current) {
-              cameraPublication?.videoTrack?.attach(localVideoRef.current);
-            }
-            setIsCameraEnabled(true);
-          } catch {
-            setIsCameraEnabled(false);
-            setCallError('Camera access was blocked. You can continue with audio.');
-          }
+        stream.getTracks().forEach((track) => {
+          pc.addTrack(track, stream);
+        });
+
+        resolveMedia();
+
+        // If caller (outgoing), create and send offer
+        if (call.direction === 'outgoing') {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          emitWebRTCSignal({ callId: call.callId, signal: offer });
         }
-      } catch (error) {
+      } catch (err) {
+        resolveMedia();
         if (!cancelled) {
-          setConnectionStatus('failed');
-          setCallError(error.message || 'Unable to connect to the call');
+          console.error('Media capture error:', err);
+          setCallError('Could not access microphone/camera. Please check permissions.');
         }
       }
     }
 
-    setupCall();
+    startMediaAndCall();
 
     return () => {
       cancelled = true;
-      room?.removeAllListeners();
-      room?.disconnect();
-      roomRef.current = null;
-      remoteAudioContainer?.replaceChildren();
+      unsubscribeSignal();
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
+      localStreamRef.current = null;
+      remoteStreamRef.current = null;
+      pc.close();
+      peerConnectionRef.current = null;
+      iceCandidatesQueueRef.current = [];
     };
-  }, [call.conversationId, call.status, isVideoCall]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [call.callId, call.direction, call.status, isVideoCall]);
 
   useEffect(() => {
     if (connectionStatus !== 'connected') return undefined;
@@ -247,34 +466,26 @@ export function CallInterface({ call, onEnd }) {
     return () => window.clearInterval(durationTimer);
   }, [connectionStatus]);
 
-  const toggleMicrophone = async () => {
+  const toggleMicrophone = () => {
     const nextValue = !isMicEnabled;
-    try {
-      await roomRef.current?.localParticipant.setMicrophoneEnabled(nextValue);
-      setIsMicEnabled(nextValue);
-      setCallError('');
-    } catch {
-      setCallError('Unable to access your microphone.');
-    }
+    localStreamRef.current?.getAudioTracks().forEach((track) => {
+      track.enabled = nextValue;
+    });
+    setIsMicEnabled(nextValue);
   };
 
-  const toggleCamera = async () => {
+  const toggleCamera = () => {
     const nextValue = !isCameraEnabled;
-    try {
-      const publication = await roomRef.current?.localParticipant.setCameraEnabled(nextValue);
-      if (nextValue && localVideoRef.current) {
-        publication?.videoTrack?.attach(localVideoRef.current);
-      }
-      setIsCameraEnabled(nextValue);
-      setCallError('');
-    } catch {
-      setCallError('Unable to access your camera.');
-    }
+    localStreamRef.current?.getVideoTracks().forEach((track) => {
+      track.enabled = nextValue;
+    });
+    setIsCameraEnabled(nextValue);
   };
 
   const enableAudioPlayback = async () => {
     try {
-      await roomRef.current?.startAudio();
+      if (remoteVideoRef.current) await remoteVideoRef.current.play();
+      if (remoteAudioRef.current) await remoteAudioRef.current.play();
       setCanPlayAudio(true);
     } catch {
       setCallError('Tap again to enable call audio.');
@@ -283,25 +494,23 @@ export function CallInterface({ call, onEnd }) {
 
   // Audio output routing. setSinkId is Chromium-only; on Safari/iOS the browser
   // owns routing entirely, so the control is disabled rather than faked.
-  const sinkIdRef = useRef(null);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
-  const [canSwitchOutput, setCanSwitchOutput] = useState(false);
+  const [canSwitchOutput] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      typeof window.HTMLMediaElement !== 'undefined' &&
+      typeof window.HTMLMediaElement.prototype?.setSinkId === 'function'
+  );
 
   useEffect(() => {
-    setCanSwitchOutput(
-      typeof window !== 'undefined' &&
-        typeof window.HTMLMediaElement !== 'undefined' &&
-        typeof window.HTMLMediaElement.prototype.setSinkId === 'function'
-    );
-  }, []);
-
-  const applySink = useCallback(async (deviceId) => {
-    sinkIdRef.current = deviceId;
-    const elements = remoteAudioRef.current?.querySelectorAll('audio') || [];
-    await Promise.all(
-      [...elements].map((element) => element.setSinkId?.(deviceId).catch(() => {}))
-    );
-  }, []);
+    if (!selectedSinkId) return;
+    if (remoteVideoRef.current && typeof remoteVideoRef.current.setSinkId === 'function') {
+      remoteVideoRef.current.setSinkId(selectedSinkId).catch(() => {});
+    }
+    if (remoteAudioRef.current && typeof remoteAudioRef.current.setSinkId === 'function') {
+      remoteAudioRef.current.setSinkId(selectedSinkId).catch(() => {});
+    }
+  }, [selectedSinkId]);
 
   const toggleSpeaker = useCallback(async () => {
     if (!canSwitchOutput) return;
@@ -317,13 +526,15 @@ export function CallInterface({ call, onEnd }) {
         outputs.find((device) => device.deviceId === 'communications') ||
         speaker;
       const target = next ? speaker : earpiece;
-      if (target) await applySink(target.deviceId);
+      if (target) {
+        setSelectedSinkId(target.deviceId);
+      }
       setIsSpeakerOn(next);
       setCallError('');
     } catch {
       setCallError('Could not switch the audio output.');
     }
-  }, [applySink, canSwitchOutput, isSpeakerOn]);
+  }, [canSwitchOutput, isSpeakerOn, setSelectedSinkId]);
 
   const isConnected = connectionStatus === 'connected';
   const statusText = {
@@ -334,159 +545,340 @@ export function CallInterface({ call, onEnd }) {
     failed: 'Could not connect',
   }[connectionStatus];
 
-  const initial = call.contact?.name?.charAt(0)?.toUpperCase() || '?';
-
   return (
-    <div className="fixed inset-0 z-[100] h-dvh overflow-hidden bg-slate-950 text-white">
-      <div ref={remoteAudioRef} className="hidden" aria-hidden="true" />
+    <>
+      {/* WhatsApp-Style Call Top Bar (visible when minimized) */}
+      {isMinimized && (
+        <header
+          role="button"
+          tabIndex={0}
+          onClick={onMaximize}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onMaximize?.();
+            }
+          }}
+          className="fixed top-0 inset-x-0 z-[85] flex h-[calc(3.25rem+env(safe-area-inset-top))] cursor-pointer select-none items-center justify-between border-b border-white/10 bg-[#0c1317] px-3 pt-[env(safe-area-inset-top)] text-white shadow-xl backdrop-blur-md transition-colors hover:bg-[#111b21] sm:px-6"
+        >
+          {/* Left: Microphone Mute Toggle Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleMicrophone();
+            }}
+            aria-label={isMicEnabled ? 'Mute microphone' : 'Unmute microphone'}
+            className={`flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-95 ${
+              !isMicEnabled
+                ? 'bg-rose-500/25 text-rose-400 ring-1 ring-rose-500/40'
+                : 'bg-white/10 text-white hover:bg-white/20'
+            }`}
+          >
+            {isMicEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+          </button>
 
-      {/* Stage */}
-      {isVideoCall && hasRemoteVideo ? (
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className="h-full w-full object-cover"
-        />
-      ) : (
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_38%,#1e3a5f_0%,#0f172a_48%,#020617_100%)]">
-          <div className="flex h-full flex-col items-center justify-center px-6">
-            <div className="relative flex items-center justify-center">
-              {/* Concentric rings read as "live" while connected, and as an
-                  outgoing pulse while the other side is still ringing. */}
-              {(isConnected || connectionStatus === 'ringing') && (
-                <>
-                  <span className="absolute h-44 w-44 animate-ping rounded-full bg-primary/20 [animation-duration:2.4s]" />
-                  <span className="absolute h-56 w-56 animate-ping rounded-full bg-primary/10 [animation-duration:2.4s] [animation-delay:0.5s]" />
-                </>
-              )}
-              {call.contact?.avatar ? (
-                <Image
-                  src={getCloudinaryThumbnail(call.contact.avatar, 288)}
-                  alt=""
-                  width={144}
-                  height={144}
-                  className="relative h-32 w-32 rounded-full object-cover ring-4 ring-white/10 sm:h-36 sm:w-36"
+          {/* Center: Video/Audio icon + Contact Name - Status / Timer */}
+          <div className="flex items-center gap-2 min-w-0 px-2">
+            {isVideoCall ? (
+              <Video className="h-4 w-4 flex-shrink-0 text-emerald-400 fill-emerald-400" />
+            ) : (
+              <Phone className="h-4 w-4 flex-shrink-0 text-emerald-400 fill-emerald-400" />
+            )}
+            <span className="truncate text-xs sm:text-sm font-semibold text-emerald-400">
+              {call.contact?.name || 'User'} - {statusText}
+            </span>
+            {(connectionStatus === 'ringing' || connectionStatus === 'connecting') && (
+              <span className="relative flex h-2 w-2 flex-shrink-0">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+            )}
+          </div>
+
+          {/* Right: End Call Red Circular Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEnd();
+            }}
+            aria-label="End call"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-red-600 text-white shadow-md shadow-red-600/40 transition-transform hover:bg-red-700 active:scale-95"
+          >
+            <PhoneOff className="h-4 w-4" />
+          </button>
+        </header>
+      )}
+
+      {/* WhatsApp-Style Floating Picture-in-Picture Video Card (visible when minimized in video call) */}
+      {isMinimized && isVideoCall && (
+        <div
+          ref={pipContainerRef}
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          role="button"
+          tabIndex={0}
+          aria-label="Floating video call preview. Tap to return to call or drag to move."
+          title="Tap to return to call, or drag to move"
+          className="fixed z-[80] flex flex-col overflow-hidden rounded-2xl border border-white/20 bg-slate-950 shadow-2xl shadow-black/80 ring-1 ring-black/50 select-none touch-none cursor-grab active:cursor-grabbing w-28 h-44 sm:w-32 sm:h-50 md:w-40 md:h-60 transition-shadow hover:ring-white/40"
+        >
+          {/* Main Remote Video Stream in PiP */}
+          <div className="relative h-full w-full bg-slate-950">
+            <video
+              ref={pipRemoteVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className={`h-full w-full object-cover transition-opacity duration-200 pointer-events-none ${
+                hasRemoteVideo ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+
+            {/* Fallback avatar if remote camera is off or connecting */}
+            {!hasRemoteVideo && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#1e3a5f_0%,#0f172a_60%,#020617_100%)] px-2 text-center pointer-events-none">
+                <Avatar
+                  src={call.contact?.avatar}
+                  name={call.contact?.name}
+                  size={48}
+                  className="ring-2 ring-white/15"
                 />
-              ) : (
-                <span className="relative flex h-32 w-32 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-container text-5xl font-bold ring-4 ring-white/10 sm:h-36 sm:w-36">
-                  {initial}
+                <span className="mt-2 text-[10px] font-medium text-white/70 truncate max-w-full">
+                  {connectionStatus === 'connected' ? 'Camera off' : statusText}
                 </span>
+              </div>
+            )}
+
+            {/* Inset Local Self-View in bottom-right corner */}
+            <div className="absolute bottom-2 right-2 h-14 w-10 sm:h-16 sm:w-11 md:h-20 md:w-14 overflow-hidden rounded-xl border border-white/30 bg-slate-900 shadow-lg pointer-events-none">
+              <video
+                ref={pipLocalVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`h-full w-full object-cover scale-x-[-1] transition-opacity ${
+                  isCameraEnabled ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+              {!isCameraEnabled && (
+                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/95 text-white/50">
+                  <VideoOff className="h-3.5 w-3.5" />
+                </div>
               )}
             </div>
 
-            <h2 className="mt-8 font-display text-3xl font-bold tracking-tight">
-              {call.contact?.name}
-            </h2>
-            <p className="mt-2 flex items-center gap-2 text-sm text-white/60">
-              {connectionStatus === 'connecting' && (
-                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
-              )}
-              <span className={isConnected ? 'tabular-nums text-white/80' : ''}>
-                {statusText}
-              </span>
-            </p>
+            {/* Top-Right Maximize Icon Pill */}
+            <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/90 backdrop-blur-sm shadow pointer-events-none">
+              <Maximize2 className="h-3 w-3" />
+            </div>
 
-            {isVideoCall && !hasRemoteVideo && isConnected && (
-              <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/60">
-                Camera is off on the other side
-              </p>
-            )}
+            {/* Bottom-Left Contact Name Pill */}
+            <div className="absolute bottom-2 left-2 max-w-[calc(100%-52px)] truncate rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm pointer-events-none">
+              {call.contact?.name || 'User'}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Self view */}
-      {isVideoCall && (
-        <div className="absolute right-4 top-[calc(4.5rem+env(safe-area-inset-top))] h-40 w-28 overflow-hidden rounded-3xl bg-slate-800 ring-1 ring-white/20 sm:h-52 sm:w-36">
-          <video
-            ref={localVideoRef}
-            autoPlay
-            muted
-            playsInline
-            className={`h-full w-full scale-x-[-1] object-cover transition-opacity ${
-              isCameraEnabled ? 'opacity-100' : 'opacity-0'
-            }`}
-          />
-          {!isCameraEnabled && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <VideoOff className="h-6 w-6 text-white/40" />
+      {/* WhatsApp-Style Call Dialog / Window */}
+      <div
+        className={
+          isMinimized
+            ? 'pointer-events-none fixed inset-0 -z-50 opacity-0 overflow-hidden'
+            : 'fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-0 md:p-6 text-white'
+        }
+      >
+        <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" aria-hidden="true" />
+
+        {/* Call Window: Fixed WhatsApp aspect on Desktop, Fullscreen on Mobile */}
+        <div
+          className={`relative flex flex-col overflow-hidden bg-slate-950 transition-all duration-300 ${
+            isFullscreen
+              ? 'fixed inset-0 h-dvh w-full rounded-none'
+              : 'h-dvh w-full md:h-[560px] md:max-h-[88vh] md:w-[800px] md:max-w-[94vw] md:rounded-3xl md:border md:border-white/15 md:shadow-2xl md:shadow-black/90'
+          }`}
+        >
+          {/* Stage Video & Fallback */}
+          <div className="absolute inset-0 z-0 bg-slate-950">
+            {/* Remote Video Track */}
+            {isVideoCall && (
+              <video
+                ref={remoteVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+                  hasRemoteVideo ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                }`}
+              />
+            )}
+
+            {/* Fallback / Avatar Stage (shown when audio call or remote video is off) */}
+            {(!isVideoCall || !hasRemoteVideo) && (
+              <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_38%,#1e3a5f_0%,#0f172a_48%,#020617_100%)]">
+                <div className="flex h-full flex-col items-center justify-center px-6">
+                  <div className="relative flex items-center justify-center">
+                    {(isConnected || connectionStatus === 'ringing') && (
+                      <>
+                        <span className="absolute h-40 w-40 animate-ping rounded-full bg-primary/20 [animation-duration:2.4s]" />
+                        <span className="absolute h-52 w-52 animate-ping rounded-full bg-primary/10 [animation-duration:2.4s] [animation-delay:0.5s]" />
+                      </>
+                    )}
+                    <Avatar
+                      src={call.contact?.avatar}
+                      name={call.contact?.name}
+                      size={120}
+                      className="relative ring-4 ring-white/10 shadow-2xl"
+                      fallbackClassName="text-4xl"
+                    />
+                  </div>
+
+                  <h2 className="mt-6 font-display text-2xl sm:text-3xl font-bold tracking-tight text-center">
+                    {call.contact?.name}
+                  </h2>
+                  <p className="mt-2 flex items-center gap-2 text-sm text-white/60">
+                    {connectionStatus === 'connecting' && (
+                      <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                    )}
+                    <span className={isConnected ? 'tabular-nums text-white/80' : ''}>
+                      {statusText}
+                    </span>
+                  </p>
+
+                  {isVideoCall && !hasRemoteVideo && isConnected && (
+                    <p className="mt-3 rounded-full bg-white/10 px-3 py-1 text-[11px] text-white/60">
+                      Camera is off on the other side
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Floating Self View (PiP) */}
+          {isVideoCall && (
+            <div className="absolute right-4 top-16 sm:top-18 z-20 h-36 w-26 sm:h-44 sm:w-32 md:h-48 md:w-36 overflow-hidden rounded-2xl bg-slate-900 ring-2 ring-white/20 shadow-2xl transition-all">
+              <video
+                ref={localVideoRef}
+                autoPlay
+                muted
+                playsInline
+                className={`h-full w-full scale-x-[-1] object-cover transition-opacity ${
+                  isCameraEnabled ? 'opacity-100' : 'opacity-0'
+                }`}
+              />
+              {!isCameraEnabled && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/90 text-white/50">
+                  <VideoOff className="h-6 w-6" />
+                  <span className="text-[10px] font-medium">You</span>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* Top bar — no close control: only the red button may end a call. */}
-      <div className="absolute inset-x-0 top-0 bg-gradient-to-b from-black/60 to-transparent px-5 pb-10 pt-[calc(1.25rem+env(safe-area-inset-top))]">
-        <p className="font-display text-base font-bold">{call.contact?.name}</p>
-        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-white/60">
-          {isVideoCall ? <Video className="h-3 w-3" /> : <Phone className="h-3 w-3" />}
-          <span>{isVideoCall ? 'Video call' : 'Voice call'}</span>
-          {isConnected && <span className="tabular-nums">· {formatDuration(callDuration)}</span>}
-        </p>
-      </div>
+          {/* Top Bar Header */}
+          <div className="absolute inset-x-0 top-0 z-30 flex items-center justify-between bg-gradient-to-b from-black/85 via-black/45 to-transparent px-4 py-3 sm:px-6 sm:py-4">
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={handleMinimize}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md transition-all hover:bg-white/25 active:scale-95"
+                aria-label="Minimize call and return to chats"
+                title="Back to chats"
+              >
+                <ChevronDown className="h-5 w-5" />
+              </button>
+              <div>
+                <p className="font-display text-sm sm:text-base font-bold leading-tight">
+                  {call.contact?.name}
+                </p>
+                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-white/70">
+                  {isVideoCall ? (
+                    <Video className="h-3.5 w-3.5 text-emerald-400" />
+                  ) : (
+                    <Phone className="h-3.5 w-3.5 text-emerald-400" />
+                  )}
+                  <span>{isVideoCall ? 'Video call' : 'Voice call'}</span>
+                  {isConnected && (
+                    <span className="tabular-nums font-medium">· {formatDuration(callDuration)}</span>
+                  )}
+                </p>
+              </div>
+            </div>
 
-      {(callError || !canPlayAudio) && (
-        <div className="absolute left-1/2 top-24 w-[min(90%,420px)] -translate-x-1/2 rounded-2xl bg-black/70 px-4 py-3 text-center text-xs backdrop-blur">
-          {callError && <p className="text-white/80">{callError}</p>}
-          {!canPlayAudio && (
-            <button
-              type="button"
-              onClick={enableAudioPlayback}
-              className="mt-2 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 font-semibold text-slate-900"
-            >
-              <Volume2 className="h-4 w-4" />
-              Enable call audio
-            </button>
-          )}
-        </div>
-      )}
+            {/* Desktop Fullscreen / Window Toggle */}
+            <div className="hidden md:flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsFullscreen((prev) => !prev)}
+                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md transition-all hover:bg-white/25 active:scale-95"
+                title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+                aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+              >
+                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
 
-      {/* Controls */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-16">
-        <div className="mx-auto flex w-fit items-end gap-2 rounded-[28px] bg-white/8 p-3 ring-1 ring-white/10 backdrop-blur-xl sm:gap-3">
-          <ControlButton
-            onClick={toggleMicrophone}
-            disabled={!isConnected}
-            active={!isMicEnabled}
-            label={isMicEnabled ? 'Mute' : 'Unmute'}
-          >
-            {isMicEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
-          </ControlButton>
-
-          <ControlButton
-            onClick={toggleSpeaker}
-            disabled={!isConnected || !canSwitchOutput}
-            active={isSpeakerOn && canSwitchOutput}
-            label={isSpeakerOn ? 'Speaker' : 'Earpiece'}
-          >
-            {isSpeakerOn ? (
-              <Volume2 className="h-5 w-5" />
-            ) : (
-              <Headphones className="h-5 w-5" />
-            )}
-          </ControlButton>
-
-          {isVideoCall && (
-            <ControlButton
-              onClick={toggleCamera}
-              disabled={!isConnected}
-              active={!isCameraEnabled}
-              label={isCameraEnabled ? 'Video' : 'Video off'}
-            >
-              {isCameraEnabled ? (
-                <Video className="h-5 w-5" />
-              ) : (
-                <VideoOff className="h-5 w-5" />
+          {/* Error / Audio playback warning badge */}
+          {(callError || !canPlayAudio) && (
+            <div className="absolute left-1/2 top-20 z-40 w-[min(90%,380px)] -translate-x-1/2 rounded-2xl bg-black/80 px-4 py-2.5 text-center text-xs backdrop-blur-md border border-white/10 shadow-xl">
+              {callError && <p className="text-white/90">{callError}</p>}
+              {!canPlayAudio && (
+                <button
+                  type="button"
+                  onClick={enableAudioPlayback}
+                  className="mt-2 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-1.5 font-semibold text-slate-900"
+                >
+                  <Volume2 className="h-3.5 w-3.5" />
+                  Enable call audio
+                </button>
               )}
-            </ControlButton>
+            </div>
           )}
 
-          <ControlButton onClick={onEnd} tone="danger" label="End">
-            <PhoneOff className="h-5 w-5" />
-          </ControlButton>
+          {/* Floating Controls Dock (WhatsApp Style) */}
+          <div className="absolute inset-x-0 bottom-6 z-30 flex justify-center px-4 pointer-events-none">
+            <div className="pointer-events-auto flex items-center gap-3 sm:gap-4 rounded-full bg-slate-900/90 px-5 py-3 ring-1 ring-white/15 backdrop-blur-2xl shadow-2xl">
+              <ControlButton
+                onClick={toggleMicrophone}
+                disabled={!isConnected}
+                active={isMicEnabled}
+                label={isMicEnabled ? 'Mute' : 'Unmuted'}
+              >
+                {isMicEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+              </ControlButton>
+
+              <ControlButton
+                onClick={toggleSpeaker}
+                disabled={!isConnected || !canSwitchOutput}
+                active={true}
+                label={isSpeakerOn ? 'Speaker' : 'Earpiece'}
+              >
+                {isSpeakerOn ? <Volume2 className="h-5 w-5" /> : <Headphones className="h-5 w-5" />}
+              </ControlButton>
+
+              {isVideoCall && (
+                <ControlButton
+                  onClick={toggleCamera}
+                  disabled={!isConnected}
+                  active={isCameraEnabled}
+                  label={isCameraEnabled ? 'Stop Video' : 'Start Video'}
+                >
+                  {isCameraEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                </ControlButton>
+              )}
+
+              <ControlButton onClick={handleEnd} tone="danger" label="End">
+                <PhoneOff className="h-5 w-5" />
+              </ControlButton>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }

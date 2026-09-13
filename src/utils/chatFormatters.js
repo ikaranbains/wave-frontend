@@ -125,8 +125,8 @@ function formatCallDuration(totalSeconds) {
 }
 
 /**
- * Wording for a call entry in the thread. Phrased from the reader's side: the
- * person who was called sees "Missed", the caller sees "No answer".
+ * Wording for a call entry in the thread. Completed calls use past-tense
+ * history language so they cannot be mistaken for a current call request.
  */
 export function describeCallEvent(callEvent, isOutgoing) {
   const kind = callEvent?.type === 'video' ? 'Video call' : 'Voice call';
@@ -134,7 +134,7 @@ export function describeCallEvent(callEvent, isOutgoing) {
   switch (callEvent?.outcome) {
     case 'completed':
       return {
-        label: isOutgoing ? `Outgoing ${kind.toLowerCase()}` : `Incoming ${kind.toLowerCase()}`,
+        label: isOutgoing ? `${kind} placed` : `${kind} received`,
         detail: formatCallDuration(callEvent.durationSeconds),
         missed: false,
       };

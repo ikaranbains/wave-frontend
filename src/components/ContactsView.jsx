@@ -1,9 +1,8 @@
 'use client';
 
-import React, { memo, useEffect, useMemo, useState } from 'react';
-import Image from 'next/image';
+import React, { memo, useEffect, useState } from 'react';
 import { Search, Mail, MessageSquare, Users, LoaderCircle } from 'lucide-react';
-import { getCloudinaryThumbnail, getInitials, isRealAvatar } from '../utils/avatarUtils';
+import { Avatar } from './Avatar';
 
 export const ContactsView = memo(function ContactsView({
   contacts = [],
@@ -116,19 +115,12 @@ export const ContactsView = memo(function ContactsView({
             <div className="relative">
               <div className="mb-4 flex items-start justify-between">
                 <div className="relative">
-                  {isRealAvatar(contact.avatar) ? (
-                    <Image
-                      src={getCloudinaryThumbnail(contact.avatar, 112)}
-                      alt={contact.name}
-                      width={56}
-                      height={56}
-                      className="h-14 w-14 rounded-full border-2 border-white/80 object-cover shadow-sm"
-                    />
-                  ) : (
-                    <div className="flex h-14 w-14 select-none items-center justify-center rounded-full border-2 border-white/80 bg-gradient-to-br from-primary to-primary-container text-base font-bold text-white shadow-sm">
-                      {getInitials(contact.name)}
-                    </div>
-                  )}
+                  <Avatar
+                    src={contact.avatar}
+                    name={contact.name}
+                    size={56}
+                    className="border-2 border-white/80 shadow-sm"
+                  />
                   <span
                     className={`absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-white shadow-sm ${
                       contact.status === 'online'

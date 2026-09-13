@@ -7,7 +7,17 @@ export function getInitials(name) {
 }
 
 export function isRealAvatar(avatar) {
-  return Boolean(avatar && !avatar.includes('images.unsplash.com'));
+  if (!avatar || typeof avatar !== 'string') return false;
+  const trimmed = avatar.trim();
+  if (
+    !trimmed ||
+    trimmed === 'null' ||
+    trimmed === 'undefined' ||
+    trimmed.includes('images.unsplash.com')
+  ) {
+    return false;
+  }
+  return true;
 }
 
 export function getCloudinaryThumbnail(url, width, height = width, crop = 'fill') {

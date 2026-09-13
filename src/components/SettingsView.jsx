@@ -1,6 +1,6 @@
 'use client';
 
-import Image from 'next/image';
+import { Avatar } from './Avatar';
 import React, { memo, useEffect, useState } from 'react';
 import {
   User,
@@ -335,23 +335,13 @@ export const SettingsView = memo(function SettingsView({
             </div>
 
             <div className="flex flex-col items-center gap-4 rounded-2xl border border-outline-variant/40 bg-white p-4 text-center sm:flex-row sm:p-5 sm:text-left">
-              {photoPreview || isRealAvatar(currentUser?.avatar) ? (
-                <Image
-                  src={getCloudinaryThumbnail(photoPreview || currentUser.avatar, 128)}
-                  alt={`${currentUser?.name || 'User'} profile photo`}
-                  width={64}
-                  height={64}
-                  unoptimized={Boolean(photoPreview)}
-                  className="h-16 w-16 rounded-full border-2 border-surface-container object-cover"
-                />
-              ) : (
-                <span
-                  aria-label="No profile photo"
-                  className="flex h-16 w-16 items-center justify-center rounded-full border-2 border-surface-container bg-surface-container-low text-outline"
-                >
-                  <User className="h-7 w-7" />
-                </span>
-              )}
+              <Avatar
+                src={photoPreview || currentUser?.avatar}
+                name={currentUser?.name}
+                size={64}
+                unoptimized={Boolean(photoPreview)}
+                className="border-2 border-surface-container"
+              />
               <div className="min-w-0 flex-1">
                 <input
                   id="profile-photo-input"

@@ -1,14 +1,18 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { getMeApi, logoutApi } from '../services/api';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { getMeApi, logoutApi } from "../services/api";
+import {
+  connectSocket,
+  disconnectSocket,
+  onSocketConnectionChange,
+} from "../services/socket";
 import {
   clearCachedUser,
   clearConversationSnapshot,
   getCachedUser,
   setCachedUser,
-} from '../services/offlineCache';
-import { connectSocket, disconnectSocket, reconnectSocket } from '../services/socket';
+} from "../services/offlineCache";
 
 export function useAuth() {
   const [currentUser, setCurrentUser] = useState(() => getCachedUser());
@@ -33,55 +37,47 @@ export function useAuth() {
   useEffect(() => {
     let active = true;
     // Remove tokens left by older builds; current sessions live only in an HttpOnly cookie.
-    window.localStorage.removeItem('pulsechat_token');
+    window.localStorage.removeItem("pulsechat_token");
 
-    const verifySession = () => {
-      getMeApi()
-        .then(({ user }) => {
-          if (!active || !user) return;
-          currentUserRef.current = user;
-          setCachedUser(user);
-          setCurrentUser(user);
-          setIsBackendConnected(true);
-          connectSocket();
-        })
-        .catch((error) => {
-          if (!active) return;
-          if (error.response?.status === 401 || !currentUserRef.current) clearSession();
-          else setIsBackendConnected(false);
-        })
-        .finally(() => {
-          if (active) setIsAuthLoading(false);
-        });
-    };
-
-    if (currentUserRef.current) connectSocket();
-    verifySession();
-    const reconnectOnFocus = () => {
-      if (document.visibilityState === 'visible' && currentUserRef.current) reconnectSocket();
-    };
-    window.addEventListener('online', verifySession);
-    document.addEventListener('visibilitychange', reconnectOnFocus);
+    getMeApi()
+      .then(({ user }) => {
+        if (!active || !user) return;
+        setCurrentUser(user);
+      })
+      .catch(() => {
+        if (active) clearSession();
+      })
+      .finally(() => {
+        if (active) setIsAuthLoading(false);
+      });
 
     return () => {
       active = false;
-      window.removeEventListener('online', verifySession);
-      document.removeEventListener('visibilitychange', reconnectOnFocus);
     };
   }, [clearSession]);
 
   useEffect(() => {
+    if (!currentUser) return undefined;
+
+    const unsubscribe = onSocketConnectionChange(setIsBackendConnected);
+    connectSocket();
+    return () => {
+      unsubscribe?.();
+      setIsBackendConnected(false);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
     const handleUnauthorized = () => clearSession();
-    window.addEventListener('pingme:unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('pingme:unauthorized', handleUnauthorized);
+    window.addEventListener("pingme:unauthorized", handleUnauthorized);
+    return () =>
+      window.removeEventListener("pingme:unauthorized", handleUnauthorized);
   }, [clearSession]);
 
   const handleLoginSuccess = useCallback((user) => {
     currentUserRef.current = user;
     setCachedUser(user);
     setCurrentUser(user);
-    setIsBackendConnected(true);
-    connectSocket();
   }, []);
 
   const handleLogout = useCallback(async () => {

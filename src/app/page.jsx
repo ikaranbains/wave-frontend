@@ -8,6 +8,7 @@ import { ChatArea } from '../components/ChatArea';
 import { ChatListPane } from '../components/ChatListPane';
 import { LoginScreen } from '../components/LoginScreen';
 import { Sidebar } from '../components/Sidebar';
+import { getCallHistoryApi } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useCalls } from '../hooks/useCalls';
 import { useConversations } from '../hooks/useConversations';
@@ -138,72 +139,57 @@ export default function Home() {
     await logout();
   }, [activeCall, endActiveCall, logout]);
 
-  // Keep single-page views in browser history so Android Back navigates inside the PWA.
-  const hasInitializedHistory = useRef(false);
+  const [callHistory, setCallHistory] = useState([]);
+  const [isCallHistoryLoading, setIsCallHistoryLoading] = useState(false);
+
+  const loadCallHistory = useCallback(async () => {
+    if (!auth.currentUser) return;
+    setIsCallHistoryLoading(true);
+    try {
+      const data = await getCallHistoryApi();
+      setCallHistory(data.calls || []);
+    } catch (err) {
+      console.error('Failed to load call history:', err);
+    } finally {
+      setIsCallHistoryLoading(false);
+    }
+  }, [auth.currentUser]);
+
   useEffect(() => {
-    if (!auth.currentUser) {
-      hasInitializedHistory.current = false;
-      return;
-    }
+    if (activeTab !== 'calls' || !auth.currentUser) return undefined;
 
-    const view = getView(activeTab, activeConversationId, activeSettingsSection);
-    if (!hasInitializedHistory.current) {
-      hasInitializedHistory.current = true;
-      saveView(HOME_VIEW, true);
-      if (!isSameView(view, HOME_VIEW)) saveView(view);
-      return;
-    }
+    let active = true;
+    getCallHistoryApi()
+      .then((data) => {
+        if (active) setCallHistory(data.calls || []);
+      })
+      .catch((err) => {
+        console.error('Failed to load call history:', err);
+      })
+      .finally(() => {
+        if (active) setIsCallHistoryLoading(false);
+      });
 
-    const savedView = window.history.state?.waveView;
-    if (isSameView(savedView, view)) return;
-
-    // Chats and secondary tabs always go back to the Messages home view.
-    if (shouldBridgeThroughHome(savedView, view)) {
-      saveView(HOME_VIEW);
-    }
-    saveView(view);
-  }, [auth.currentUser, activeConversationId, activeSettingsSection, activeTab]);
-
-  // Android can restore a killed standalone task at its last in-app view but with
-  // a fresh one-entry history. Recreate the missing Messages entry on resume.
-  useEffect(() => {
-    if (!auth.currentUser) return undefined;
-
-    const ensureHomeBackTarget = () => {
-      if (document.visibilityState !== 'visible') return;
-      const view = getView(activeTab, activeConversationId, activeSettingsSection);
-      if (!needsHomeBackTarget(view, window.history.length)) return;
-      saveView(HOME_VIEW, true);
-      saveView(view);
-    };
-
-    window.addEventListener('pageshow', ensureHomeBackTarget);
-    document.addEventListener('visibilitychange', ensureHomeBackTarget);
     return () => {
-      window.removeEventListener('pageshow', ensureHomeBackTarget);
-      document.removeEventListener('visibilitychange', ensureHomeBackTarget);
+      active = false;
     };
-  }, [auth.currentUser, activeConversationId, activeSettingsSection, activeTab]);
+  }, [activeTab, auth.currentUser]);
 
+  const prevActiveCallRef = useRef(calls.activeCall);
   useEffect(() => {
-    if (!auth.currentUser) return undefined;
-
-    const restoreView = (event) => {
-      const view = event.state?.waveView;
-      if (!view || !VALID_TABS.has(view.tab)) return;
-
-      setActiveTab(view.tab);
-      setActiveSettingsSection(view.tab === 'settings' ? view.settingsSection || null : null);
-      if (view.tab === 'messages' && view.conversationId) {
-        selectConversation(view.conversationId);
-      } else {
-        setActiveConversationId(null);
-      }
-    };
-
-    window.addEventListener('popstate', restoreView);
-    return () => window.removeEventListener('popstate', restoreView);
-  }, [auth.currentUser, selectConversation, setActiveConversationId]);
+    if (prevActiveCallRef.current && !calls.activeCall && auth.currentUser) {
+      let active = true;
+      getCallHistoryApi()
+        .then((data) => {
+          if (active) setCallHistory(data.calls || []);
+        })
+        .catch(() => {});
+      return () => {
+        active = false;
+      };
+    }
+    prevActiveCallRef.current = calls.activeCall;
+  }, [calls.activeCall, auth.currentUser]);
 
   // Deep links: manifest shortcuts (?tab=) and notification clicks (?conversation=).
   const hasHandledLaunchUrl = useRef(false);
@@ -217,8 +203,8 @@ export default function Home() {
       const requestedTab = params.get('tab');
       const requestedConversation = params.get('conversation');
 
-      if (['messages', 'contacts', 'calls', 'settings'].includes(requestedTab)) {
-        selectTab(requestedTab);
+      if (['messages', 'calls', 'contacts', 'settings'].includes(requestedTab)) {
+        setActiveTab(requestedTab);
       }
       if (requestedConversation) {
         selectTab('messages');
@@ -292,10 +278,16 @@ export default function Home() {
   }
 
   return (
-    <div className="ambient flex h-full w-full overflow-hidden">
+    <div
+      className={`ambient flex h-full w-full overflow-hidden transition-[padding] duration-200 ${
+        calls.activeCall && calls.isCallMinimized
+          ? 'pt-[calc(3.25rem+env(safe-area-inset-top))]'
+          : ''
+      }`}
+    >
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={selectTab}
+        setActiveTab={setActiveTab}
         currentUser={auth.currentUser}
         hideOnMobile={activeTab === 'messages' && !!chat.activeConversationId}
       />
@@ -328,6 +320,19 @@ export default function Home() {
             onTypingStop={chat.sendTypingStop}
           />
         </>
+      )}
+
+      {activeTab === 'calls' && (
+        <CallsView
+          calls={callHistory}
+          isLoading={isCallHistoryLoading}
+          onRefreshCalls={loadCallHistory}
+          onStartCall={calls.startCall}
+          onSelectConversation={(id) => {
+            setActiveTab('messages');
+            chat.selectConversation(id);
+          }}
+        />
       )}
 
       {activeTab === 'contacts' && (
@@ -377,7 +382,13 @@ export default function Home() {
         />
       )}
       {calls.activeCall && (
-        <CallInterface call={calls.activeCall} onEnd={calls.endActiveCall} />
+        <CallInterface
+          call={calls.activeCall}
+          isMinimized={calls.isCallMinimized}
+          onMinimize={() => calls.setIsCallMinimized(true)}
+          onMaximize={() => calls.setIsCallMinimized(false)}
+          onEnd={calls.endActiveCall}
+        />
       )}
       {calls.callNotice && (
         <button

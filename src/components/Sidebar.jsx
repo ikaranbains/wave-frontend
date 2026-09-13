@@ -2,8 +2,8 @@
 
 import React, { memo } from 'react';
 import Image from 'next/image';
-import { MessageSquare, Phone, Users } from 'lucide-react';
-import { getCloudinaryThumbnail, getInitials, isRealAvatar } from '../utils/avatarUtils';
+import { MessageSquare, Phone, Users, Settings } from 'lucide-react';
+import { Avatar } from './Avatar';
 
 export const Sidebar = memo(function Sidebar({
   activeTab,
@@ -12,10 +12,9 @@ export const Sidebar = memo(function Sidebar({
   hideOnMobile = false,
 }) {
   const navClass = (isActive) =>
-    `relative flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 active:scale-95 ${
-      isActive
-        ? 'glass-active text-primary'
-        : 'text-on-surface-variant hover:bg-white/50 hover:text-on-surface'
+    `relative flex h-12 w-12 items-center justify-center rounded-2xl transition-all duration-200 active:scale-95 ${isActive
+      ? 'glass-active text-primary'
+      : 'text-on-surface-variant hover:bg-white/50 hover:text-on-surface'
     }`;
 
   return (
@@ -53,16 +52,6 @@ export const Sidebar = memo(function Sidebar({
           <MessageSquare className="w-5 h-5" />
         </button>
 
-        {/* Contacts */}
-        <button
-          onClick={() => setActiveTab('contacts')}
-          title="Contacts"
-          aria-label="Contacts"
-          className={navClass(activeTab === 'contacts')}
-        >
-          <Users className="w-5 h-5" />
-        </button>
-
         {/* Calls */}
         <button
           onClick={() => setActiveTab('calls')}
@@ -73,33 +62,44 @@ export const Sidebar = memo(function Sidebar({
           <Phone className="w-5 h-5" />
         </button>
 
+        {/* Contacts */}
+        <button
+          onClick={() => setActiveTab('contacts')}
+          title="Contacts"
+          aria-label="Contacts"
+          className={navClass(activeTab === 'contacts')}
+        >
+          <Users className="w-5 h-5" />
+        </button>
       </nav>
 
-      {/* Profile */}
-      <div className="flex w-1/4 flex-none flex-row items-center justify-center gap-1 md:mt-auto md:w-auto md:flex-col md:gap-3">
+      {/* Bottom Utility Controls & Profile */}
+      <div className="flex flex-row md:flex-col gap-1 md:gap-3 items-center md:mt-auto">
+
+        <button
+          onClick={() => setActiveTab('settings')}
+          title="Settings"
+          aria-label="Settings"
+          className={`hidden md:flex ${navClass(activeTab === 'settings')}`}
+        >
+          <Settings className="w-5 h-5" />
+        </button>
+
         <div className="md:mt-2 relative">
           <button
             type="button"
             onClick={() => setActiveTab('settings')}
             title="Open profile and settings"
             aria-label={`Open profile and settings for ${currentUser?.name || 'current user'}`}
-            className={`flex h-11 w-11 items-center justify-center rounded-full transition-all hover:bg-white/50 focus:outline-none focus:ring-2 focus:ring-primary/30 ${
-              activeTab === 'settings' ? 'ring-2 ring-primary/40 md:ring-0' : ''
-            }`}
+            className={`flex h-11 w-11 items-center justify-center rounded-full transition-all hover:bg-white/50 focus:outline-none focus:ring-2 focus:ring-primary/30 ${activeTab === 'settings' ? 'ring-2 ring-primary/40 md:ring-0' : ''
+              }`}
           >
-            {isRealAvatar(currentUser?.avatar) ? (
-              <Image
-                className="w-10 h-10 rounded-full border-2 border-white/70 object-cover shadow-sm transition-opacity hover:opacity-90"
-                alt={currentUser.name}
-                src={getCloudinaryThumbnail(currentUser.avatar, 80)}
-                width={40}
-                height={40}
-              />
-            ) : (
-              <span className="flex h-10 w-10 items-center justify-center rounded-full border-2 border-white/70 bg-primary text-sm font-bold text-white shadow-sm select-none">
-                {getInitials(currentUser?.name)}
-              </span>
-            )}
+            <Avatar
+              src={currentUser?.avatar}
+              name={currentUser?.name}
+              size={40}
+              className="border-2 border-white/70 shadow-sm"
+            />
           </button>
         </div>
       </div>

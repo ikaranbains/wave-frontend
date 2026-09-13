@@ -1,9 +1,8 @@
 'use client';
 
-import React, { memo, useMemo, useState } from 'react';
-import Image from 'next/image';
+import React, { memo, useState } from 'react';
 import { MessageSquare, Search } from 'lucide-react';
-import { getCloudinaryThumbnail, getInitials, isRealAvatar } from '../utils/avatarUtils';
+import { Avatar } from './Avatar';
 
 export const ChatListPane = memo(function ChatListPane({
   conversations = [],
@@ -96,19 +95,11 @@ export const ChatListPane = memo(function ChatListPane({
 
                 {/* Avatar */}
                 <div className="relative flex-shrink-0">
-                  {isRealAvatar(conv.contact?.avatar) ? (
-                    <Image
-                      src={getCloudinaryThumbnail(conv.contact?.avatar, 96)}
-                      alt={conv.contact?.name}
-                      width={48}
-                      height={48}
-                      className="w-12 h-12 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-primary font-bold text-sm select-none">
-                      {getInitials(conv.contact?.name)}
-                    </div>
-                  )}
+                  <Avatar
+                    src={conv.contact?.avatar}
+                    name={conv.contact?.name}
+                    size={48}
+                  />
                   {conv.isOnline && (
                     <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-white rounded-full" />
                   )}

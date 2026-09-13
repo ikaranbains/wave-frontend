@@ -35,13 +35,9 @@ import {
   Copy,
   Trash2,
   Ban,
+  ImageOff,
 } from 'lucide-react';
-import {
-  getCloudinaryMicroPreview,
-  getCloudinaryThumbnail,
-  getInitials,
-  isRealAvatar,
-} from '../utils/avatarUtils';
+import { Avatar } from './Avatar';
 import { describeCallEvent, formatLastSeen } from '../utils/chatFormatters';
 import { compressImage, shouldCompressImage } from '../utils/imageCompression.mjs';
 import {
@@ -404,6 +400,85 @@ const MessageItem = memo(function MessageItem({
         </div>
       )}
     </div>
+  );
+});
+
+const MessageImageAttachment = memo(function MessageImageAttachment({ url, name, onClick }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-black/10 text-on-surface-variant text-xs border border-outline-variant/40 min-h-28 text-center select-none">
+        <ImageOff className="w-5 h-5 mb-1.5 opacity-60" />
+        <span className="font-medium text-[11px]">Image unavailable</span>
+        {name && <span className="text-[10px] opacity-70 truncate max-w-48 mt-0.5">{name}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative group/img rounded-lg overflow-hidden border border-white/20 min-h-70 max-h-70 bg-black/5">
+      <Image
+        src={url}
+        alt={name || 'Attachment'}
+        width={224}
+        height={144}
+        unoptimized
+        onError={() => setHasError(true)}
+        onClick={onClick}
+        className="w-full h-full object-contain object-top cursor-pointer hover:scale-105 transition-transform"
+      />
+    </div>
+  );
+});
+
+const ReplyImageThumbnail = memo(function ReplyImageThumbnail({ url, alt = 'Replying photo thumbnail', className = 'h-11 w-11 flex-shrink-0 object-cover' }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className={`${className} flex items-center justify-center bg-black/10 text-outline`}>
+        <ImageOff className="w-4 h-4 opacity-60" />
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={url}
+      alt={alt}
+      width={44}
+      height={44}
+      unoptimized
+      onError={() => setHasError(true)}
+      className={className}
+    />
+  );
+});
+
+const SharedMediaItem = memo(function SharedMediaItem({ attachment, onPreview }) {
+  const [hasError, setHasError] = useState(false);
+
+  if (hasError) {
+    return (
+      <div className="w-full h-16 rounded-md bg-black/10 flex flex-col items-center justify-center text-outline p-1 text-center">
+        <ImageOff className="w-4 h-4 opacity-60 mb-0.5" />
+        <span className="text-[9px] truncate w-full opacity-70">Unavailable</span>
+      </div>
+    );
+  }
+
+  return (
+    <Image
+      src={attachment.url}
+      alt={attachment.name || 'Shared image'}
+      width={80}
+      height={64}
+      unoptimized
+      onError={() => setHasError(true)}
+      className="w-full h-16 object-cover rounded-md cursor-pointer hover:opacity-80"
+      onClick={onPreview}
+    />
   );
 });
 
@@ -776,46 +851,30 @@ export const ChatArea = memo(function ChatArea({
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <button
-              type="button"
-              onClick={() => setShowInfoDrawer(true)}
-              aria-label={`Open ${conversation.contact?.name || 'contact'} profile`}
-              aria-expanded={showInfoDrawer}
-              className="flex min-w-0 items-center gap-2 rounded-xl text-left transition-opacity hover:opacity-80 focus-visible:outline-2 focus-visible:outline-primary sm:gap-3"
-            >
-              <div className="relative flex-shrink-0">
-                {isRealAvatar(conversation.contact?.avatar) ? (
-                  <Image
-                    src={getCloudinaryThumbnail(conversation.contact.avatar, 80)}
-                    alt={conversation.contact?.name || 'Contact'}
-                    width={40}
-                    height={40}
-                    className="h-10 w-10 rounded-full object-cover"
-                  />
-                ) : (
-                  <span className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary-container font-bold text-sm text-primary select-none">
-                    {getInitials(conversation.contact?.name)}
-                  </span>
-                )}
-                {conversation.isOnline && (
-                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
-                )}
-              </div>
-              <div className="min-w-0">
-                <h2 className="truncate text-sm font-semibold text-on-surface">
-                  {conversation.contact?.name}
-                </h2>
-                {conversation.isOnline ? (
-                  <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-600">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-600" /> Online
-                  </span>
-                ) : (
-                  <span className="text-[11px] text-outline">
-                    {formatLastSeen(conversation.contact?.lastSeen)}
-                  </span>
-                )}
-              </div>
-            </button>
+            <div className="relative flex-shrink-0">
+              <Avatar
+                src={conversation.contact?.avatar}
+                name={conversation.contact?.name}
+                size={40}
+              />
+              {conversation.isOnline && (
+                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
+              )}
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-on-surface truncate">
+                {conversation.contact?.name}
+              </h2>
+              {conversation.isOnline ? (
+                <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full" /> Online
+                </span>
+              ) : (
+                <span className="text-[11px] text-outline">
+                  {formatLastSeen(conversation.contact?.lastSeen)}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-1">
@@ -883,34 +942,25 @@ export const ChatArea = memo(function ChatArea({
                 </p>
               </div>
             </div>
-          ) : messageGroups.map((group) => (
-            <div key={group.key} className="relative flex flex-col gap-4">
-              <div className="sticky top-2 z-10 my-1 flex justify-center">
-                <span className="rounded-lg border border-outline-variant/50 bg-surface/95 px-3 py-1 text-[10px] font-semibold text-on-surface-variant shadow-xs backdrop-blur-sm">
-                  {formatMessageDateLabel(group.messages[0].createdAt)}
-                </span>
-              </div>
-              {group.messages.map((msg) =>
-                msg.callEvent ? (
-                  <CallLogEntry key={msg.id} message={msg} />
-                ) : (
-                  <MessageItem
-                    key={msg.id}
-                    message={msg}
-                    isMenuOpen={activeMenuMessageId === msg.id}
-                    menuRef={messageMenuRef}
-                    onToggleMenu={toggleMessageMenu}
-                    onReply={replyToMessage}
-                    onDownload={downloadMessageAttachment}
-                    onDelete={deleteMessage}
-                    onPreview={previewMessageImage}
-                    onRetry={onRetryMessage}
-                    onCloseMenu={closeMessageMenu}
-                  />
-                )
-              )}
-            </div>
-          ))}
+          ) : messages.map((msg) =>
+            msg.callEvent ? (
+              <CallLogEntry key={msg.id} message={msg} />
+            ) : (
+              <MessageItem
+                key={msg.id}
+                message={msg}
+                isMenuOpen={activeMenuMessageId === msg.id}
+                menuRef={messageMenuRef}
+                onToggleMenu={toggleMessageMenu}
+                onReply={replyToMessage}
+                onDownload={downloadMessageAttachment}
+                onDelete={deleteMessage}
+                onPreview={previewMessageImage}
+                onRetry={onRetryMessage}
+                onCloseMenu={closeMessageMenu}
+              />
+            )
+          )}
 
           {/* Real-time Typing Bubble Animation */}
           {isContactTyping && (
@@ -934,11 +984,9 @@ export const ChatArea = memo(function ChatArea({
               <div className="flex items-center justify-between gap-3 rounded-xl border-l-4 border-l-primary border border-outline-variant/60 bg-white p-2.5 shadow-xs text-xs">
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   {replyingToMessage.attachment?.url && replyingToMessage.attachment?.type === 'image' && (
-                    <Image
-                      src={getCloudinaryThumbnail(replyingToMessage.attachment.url, 72)}
+                    <ReplyImageThumbnail
+                      url={replyingToMessage.attachment.url}
                       alt="Reply thumbnail"
-                      width={36}
-                      height={36}
                       className="w-9 h-9 rounded-lg object-cover flex-shrink-0 border border-outline-variant/60"
                     />
                   )}
@@ -1213,19 +1261,12 @@ export const ChatArea = memo(function ChatArea({
           </div>
 
           <div className="flex flex-col items-center text-center">
-            {isRealAvatar(conversation.contact?.avatar) ? (
-              <Image
-                src={getCloudinaryThumbnail(conversation.contact.avatar, 160)}
-                alt={conversation.contact?.name || 'Contact'}
-                width={80}
-                height={80}
-                className="mb-3 h-20 w-20 rounded-full border-2 border-white object-cover shadow-xs"
-              />
-            ) : (
-              <span className="mb-3 flex h-20 w-20 items-center justify-center rounded-full bg-secondary-container text-xl font-bold text-primary select-none">
-                {getInitials(conversation.contact?.name)}
-              </span>
-            )}
+            <Avatar
+              src={conversation.contact?.avatar}
+              name={conversation.contact?.name}
+              size={80}
+              className="mb-3 border-2 border-white shadow-xs"
+            />
             <h4 className="text-sm font-semibold text-on-surface">
               {conversation.contact?.name}
             </h4>
@@ -1252,14 +1293,10 @@ export const ChatArea = memo(function ChatArea({
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {sharedImages.map((attachment, index) => (
-                  <Image
+                  <SharedMediaItem
                     key={`${attachment.url}-${index}`}
-                    src={getCloudinaryThumbnail(attachment.url, 160, 128)}
-                    alt={attachment.name || 'Shared image'}
-                    width={80}
-                    height={64}
-                    className="w-full h-16 object-cover rounded-md cursor-pointer hover:opacity-80"
-                    onClick={() => setPreviewImage(attachment.url)}
+                    attachment={attachment}
+                    onPreview={() => setPreviewImage(attachment.url)}
                   />
                 ))}
               </div>
@@ -1280,6 +1317,7 @@ export const ChatArea = memo(function ChatArea({
               alt="Full resolution"
               width={1200}
               height={900}
+              unoptimized
               sizes="(max-width: 768px) 92vw, 768px"
               className="max-h-[85dvh] max-w-full object-contain"
             />
@@ -1289,3 +1327,4 @@ export const ChatArea = memo(function ChatArea({
     </main>
   );
 });
+

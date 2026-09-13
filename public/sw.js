@@ -311,7 +311,9 @@ self.addEventListener('fetch', (event) => {
 function normalizePushPayload(payload) {
   const notification = payload.notification || {};
   const data = payload.data || {};
-  const kind = data.kind || 'message';
+  // Our backend sends standard web-push payloads while FCM puts values under
+  // `data`. A callId is sufficient to classify older flat call payloads too.
+  const kind = data.kind || payload.kind || (data.callId || payload.callId ? 'call' : 'message');
 
   return {
     title: kind === 'message' ? 'Wave' : notification.title || payload.title || 'Wave',

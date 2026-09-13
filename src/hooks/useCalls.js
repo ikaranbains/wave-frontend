@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { startRingtone, stopRingtone } from '../utils/notificationSound';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { startRingtone, stopRingtone } from "../utils/notificationSound";
 import {
   acceptCall,
   declineCall,
@@ -11,12 +11,17 @@ import {
   onCallDeclined,
   onCallEnded,
   onIncomingCall,
-} from '../services/socket';
+} from "../services/socket";
 
-export function useCalls({ currentUser, isBackendConnected, activeConversation }) {
+export function useCalls({
+  currentUser,
+  isBackendConnected,
+  activeConversation,
+}) {
   const [incomingCall, setIncomingCall] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
-  const [callNotice, setCallNotice] = useState('');
+  const [callNotice, setCallNotice] = useState("");
+  const [isCallMinimized, setIsCallMinimized] = useState(false);
 
   // Mirrors of the two call slots. Deciding "am I already busy?" has to happen
   // outside a state updater: React re-runs updaters (twice in Strict Mode), so
@@ -47,7 +52,7 @@ export function useCalls({ currentUser, isBackendConnected, activeConversation }
     });
     const unsubscribeAccepted = onCallAccepted((event) => {
       if (activeCallRef.current?.callId === event.callId) {
-        applyActiveCall({ ...activeCallRef.current, status: 'connecting' });
+        applyActiveCall({ ...activeCallRef.current, status: "connecting" });
       }
       if (incomingCallRef.current?.callId === event.callId) {
         applyIncomingCall(null);
@@ -62,13 +67,15 @@ export function useCalls({ currentUser, isBackendConnected, activeConversation }
       if (!isOurs) return;
 
       if (activeCallRef.current?.callId === event.callId) applyActiveCall(null);
-      if (incomingCallRef.current?.callId === event.callId) applyIncomingCall(null);
-      setCallNotice('Call declined');
+      if (incomingCallRef.current?.callId === event.callId)
+        applyIncomingCall(null);
+      setCallNotice("Call declined");
     });
     const unsubscribeEnded = onCallEnded((event) => {
       if (activeCallRef.current?.callId === event.callId) applyActiveCall(null);
-      if (incomingCallRef.current?.callId === event.callId) applyIncomingCall(null);
-      if (event.reason === 'missed') setCallNotice('No answer');
+      if (incomingCallRef.current?.callId === event.callId)
+        applyIncomingCall(null);
+      if (event.reason === "missed") setCallNotice("No answer");
     });
 
     return () => {
@@ -88,7 +95,7 @@ export function useCalls({ currentUser, isBackendConnected, activeConversation }
 
     const isRingingIn = Boolean(incomingCall);
     const isRingingOut =
-      activeCall?.direction === 'outgoing' && activeCall?.status === 'ringing';
+      activeCall?.direction === "outgoing" && activeCall?.status === "ringing";
 
     if (!isRingingIn && !isRingingOut) return undefined;
 
@@ -100,37 +107,40 @@ export function useCalls({ currentUser, isBackendConnected, activeConversation }
   useEffect(() => () => stopRingtone(), []);
 
   const startCall = useCallback(
-    async (type, conversation = activeConversation) => {
-      if (!conversation || activeCall || incomingCall) return;
-      setCallNotice('');
-      const response = await inviteCall(conversation.id, type);
+    async (type, conversationOverride) => {
+      const conv = conversationOverride || activeConversation;
+      if (!conv || activeCall || incomingCall) return;
+      setCallNotice("");
+      setIsCallMinimized(false);
+      const response = await inviteCall(conv.id, type);
       if (!response.ok) {
-        setCallNotice(response.error || 'Unable to start the call');
+        setCallNotice(response.error || "Unable to start the call");
         return;
       }
       applyActiveCall({
         ...response.call,
-        direction: 'outgoing',
-        contact: conversation.contact,
+        direction: "outgoing",
+        contact: conv.contact,
       });
     },
-    [activeCall, activeConversation, incomingCall, applyActiveCall]
+    [activeCall, activeConversation, incomingCall, applyActiveCall],
   );
 
   const acceptIncomingCall = useCallback(async () => {
     if (!incomingCall) return;
     const call = incomingCall;
     applyIncomingCall(null);
+    setIsCallMinimized(false);
     applyActiveCall({
       ...call,
-      direction: 'incoming',
-      status: 'connecting',
+      direction: "incoming",
+      status: "connecting",
       contact: call.caller,
     });
     const response = await acceptCall(call.callId);
     if (!response.ok) {
       applyActiveCall(null);
-      setCallNotice(response.error || 'This call is no longer available');
+      setCallNotice(response.error || "This call is no longer available");
     }
   }, [incomingCall, applyActiveCall, applyIncomingCall]);
 
@@ -144,6 +154,7 @@ export function useCalls({ currentUser, isBackendConnected, activeConversation }
   const endActiveCall = useCallback(() => {
     if (!activeCall) return;
     const { callId } = activeCall;
+    setIsCallMinimized(false);
     applyActiveCall(null);
     endCall(callId);
   }, [activeCall, applyActiveCall]);
@@ -152,6 +163,8 @@ export function useCalls({ currentUser, isBackendConnected, activeConversation }
     incomingCall,
     activeCall,
     callNotice,
+    isCallMinimized,
+    setIsCallMinimized,
     setCallNotice,
     startCall,
     acceptIncomingCall,
