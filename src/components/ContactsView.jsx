@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, useEffect, useState } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { Search, Mail, MessageSquare, Users, LoaderCircle } from 'lucide-react';
 import { Avatar } from './Avatar';
 

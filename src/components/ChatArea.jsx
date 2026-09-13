@@ -38,6 +38,10 @@ import {
   ImageOff,
 } from 'lucide-react';
 import { Avatar } from './Avatar';
+import {
+  getCloudinaryMicroPreview,
+  getCloudinaryThumbnail,
+} from '../utils/avatarUtils';
 import { describeCallEvent, formatLastSeen } from '../utils/chatFormatters';
 import { compressImage, shouldCompressImage } from '../utils/imageCompression.mjs';
 import {

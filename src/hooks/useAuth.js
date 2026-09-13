@@ -15,10 +15,10 @@ import {
 } from "../services/offlineCache";
 
 export function useAuth() {
-  const [currentUser, setCurrentUser] = useState(() => getCachedUser());
-  const [isAuthLoading, setIsAuthLoading] = useState(() => !getCachedUser());
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const [isBackendConnected, setIsBackendConnected] = useState(false);
-  const currentUserRef = useRef(currentUser);
+  const currentUserRef = useRef(null);
 
   const clearSession = useCallback(() => {
     const userId = currentUserRef.current?._id || currentUserRef.current?.id;
@@ -36,6 +36,17 @@ export function useAuth() {
 
   useEffect(() => {
     let active = true;
+    // Restore cached user asynchronously to allow hydration to complete smoothly
+    queueMicrotask(() => {
+      if (!active) return;
+      const cached = getCachedUser();
+      if (cached) {
+        setCurrentUser(cached);
+        currentUserRef.current = cached;
+        setIsAuthLoading(false);
+      }
+    });
+
     // Remove tokens left by older builds; current sessions live only in an HttpOnly cookie.
     window.localStorage.removeItem("pulsechat_token");
 
@@ -43,6 +54,8 @@ export function useAuth() {
       .then(({ user }) => {
         if (!active || !user) return;
         setCurrentUser(user);
+        currentUserRef.current = user;
+        setCachedUser(user);
       })
       .catch(() => {
         if (active) clearSession();

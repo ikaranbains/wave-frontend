@@ -2,7 +2,6 @@
 
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
-
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChatArea } from '../components/ChatArea';
 import { ChatListPane } from '../components/ChatListPane';
@@ -14,43 +13,6 @@ import { useCalls } from '../hooks/useCalls';
 import { useConversations } from '../hooks/useConversations';
 import { useTheme } from '../hooks/useTheme';
 import { requestPushOnLaunch } from '../services/pushClient';
-
-const HOME_VIEW = { tab: 'messages', conversationId: null, settingsSection: null };
-const VALID_TABS = new Set(['messages', 'contacts', 'calls', 'settings']);
-
-function getView(tab, conversationId, settingsSection) {
-  return {
-    tab,
-    conversationId: tab === 'messages' ? conversationId : null,
-    settingsSection: tab === 'settings' ? settingsSection : null,
-  };
-}
-
-function isSameView(left, right) {
-  return (
-    left?.tab === right.tab &&
-    left?.conversationId === right.conversationId &&
-    (left?.settingsSection || null) === (right.settingsSection || null)
-  );
-}
-
-function shouldBridgeThroughHome(savedView, view) {
-  const staysWithinSettings = savedView?.tab === 'settings' && view.tab === 'settings';
-  return (
-    !staysWithinSettings &&
-    !isSameView(view, HOME_VIEW) &&
-    !isSameView(savedView, HOME_VIEW)
-  );
-}
-
-function needsHomeBackTarget(view, historyLength) {
-  return historyLength <= 1 && !isSameView(view, HOME_VIEW);
-}
-
-function saveView(view, replace = false) {
-  const state = { ...window.history.state, waveView: view };
-  window.history[replace ? 'replaceState' : 'pushState'](state, '', window.location.href);
-}
 
 const CallInterface = dynamic(
   () => import('../components/CallInterface').then((module) => module.CallInterface),
