@@ -81,7 +81,7 @@ export const CallsView = memo(function CallsView({
   }, [conversationKey, currentUserId]);
 
   return (
-    <main className="ambient scroll-touch h-full flex-1 select-none overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(1.5rem+env(safe-area-inset-top))] md:ml-[100px] md:p-8 md:pb-8">
+    <main className="card scroll-touch h-full flex-1 select-none overflow-y-auto rounded-none border-0 p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(1.5rem+env(safe-area-inset-top))] md:rounded-2xl md:border md:p-8 md:pb-8">
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-center justify-between">
           <div>

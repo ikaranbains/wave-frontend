@@ -33,7 +33,7 @@ export const ContactsView = memo(function ContactsView({
   }, [contacts, filter, search]);
 
   return (
-    <div className="ambient scroll-touch h-full flex-1 select-none overflow-y-auto p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(1.5rem+env(safe-area-inset-top))] md:ml-[100px] md:p-8 md:pb-8">
+    <div className="card scroll-touch h-full flex-1 select-none overflow-y-auto rounded-none border-0 p-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(1rem+env(safe-area-inset-top))] sm:p-6 sm:pt-[calc(1.5rem+env(safe-area-inset-top))] md:rounded-2xl md:border md:p-8 md:pb-8">
       {/* Header section */}
       <div className="mb-6 flex flex-col items-start justify-between gap-4 md:mb-8 md:flex-row md:items-center">
         <div>

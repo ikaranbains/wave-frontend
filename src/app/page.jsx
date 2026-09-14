@@ -241,7 +241,7 @@ export default function Home() {
 
   return (
     <div
-      className={`ambient flex h-full w-full overflow-hidden transition-[padding] duration-200 ${
+      className={`ambient flex h-full w-full flex-col overflow-hidden transition-[padding] duration-200 md:gap-3 md:p-3 ${
         calls.activeCall && calls.isCallMinimized
           ? 'pt-[calc(3.25rem+env(safe-area-inset-top))]'
           : ''
@@ -251,9 +251,11 @@ export default function Home() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         currentUser={auth.currentUser}
+        onOpenSearch={() => setIsSearchOpen(true)}
         hideOnMobile={activeTab === 'messages' && !!chat.activeConversationId}
       />
 
+      <div className="flex min-h-0 w-full flex-1 md:gap-3">
       {activeTab === 'messages' && (
         <>
           <ChatListPane
@@ -326,6 +328,7 @@ export default function Home() {
           onLogout={handleLogout}
         />
       )}
+      </div>
 
       {isSearchOpen && (
         <SearchModal

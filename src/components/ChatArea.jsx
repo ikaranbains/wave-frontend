@@ -147,12 +147,12 @@ const MessageItem = memo(function MessageItem({
     >
       <div className="flex flex-col min-w-0">
         <div
-          className={`p-1.5 rounded-2xl text-xs leading-relaxed shadow-xs relative ${
+          className={`relative rounded-2xl p-1.5 text-[13px] leading-relaxed ${
             msg.isDeleted
-              ? 'bg-surface-container-low text-outline italic rounded-2xl border border-outline-variant/40'
+              ? 'bg-surface-container italic text-outline'
               : msg.isSentByMe
-                ? 'bg-primary text-white rounded-tr-xs'
-                : 'bg-surface-container-low text-on-surface rounded-tl-xs border border-surface-container-highest/60'
+                ? 'rounded-br-md bg-primary text-on-primary'
+                : 'rounded-bl-md bg-secondary-container text-on-surface'
           }`}
         >
           {msg.isDeleted ? (
@@ -170,19 +170,19 @@ const MessageItem = memo(function MessageItem({
                     msg.replyTo.attachmentUrl)
               ) && (
                 <div
-                  className={`mb-1 flex items-stretch gap-2 overflow-hidden rounded-lg ${
-                    msg.isSentByMe ? 'bg-black/20' : 'bg-primary/8'
+                  className={`mb-1 flex items-stretch gap-2 overflow-hidden rounded-xl ${
+                    msg.isSentByMe ? 'bg-on-primary/12' : 'bg-primary/10'
                   }`}
                 >
                   <span
                     className={`w-[3px] flex-shrink-0 rounded-full ${
-                      msg.isSentByMe ? 'bg-white' : 'bg-primary'
+                      msg.isSentByMe ? 'bg-on-primary/60' : 'bg-primary'
                     }`}
                   />
                   <div className="min-w-0 flex-1 py-1.5 pr-1">
                     <span
                       className={`block truncate text-[11px] font-semibold leading-tight ${
-                        msg.isSentByMe ? 'text-white' : 'text-primary'
+                        msg.isSentByMe ? 'text-on-primary' : 'text-primary'
                       }`}
                     >
                       {msg.replyTo.senderName || 'Replied message'}
@@ -826,14 +826,19 @@ export const ChatArea = memo(function ChatArea({
 
   if (!conversation) {
     return (
-      <main className="ambient hidden h-full flex-1 items-center justify-center md:flex">
-        <div className="max-w-sm px-6 text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary-container text-primary">
-            <MessageSquare className="h-7 w-7" />
+      <main className="card hidden h-full flex-1 items-center justify-center rounded-none border-0 md:flex md:rounded-2xl md:border">
+        <div className="animate-in fade-in duration-700 max-w-xs text-center">
+          <div className="empty-rings relative mx-auto mb-8 flex h-16 w-16 items-center justify-center">
+            <span className="glow-breathe absolute inset-0 rounded-full bg-primary/25 blur-2xl" />
+            <span className="relative flex h-16 w-16 items-center justify-center rounded-[1.25rem] bg-secondary-container text-primary">
+              <MessageSquare className="h-6 w-6" strokeWidth={1.75} />
+            </span>
           </div>
-          <h2 className="text-base font-semibold text-on-surface">Select a chat</h2>
-          <p className="mt-2 text-xs leading-relaxed text-outline">
-            Choose a conversation from the list to view messages and start chatting.
+          <h2 className="font-display text-lg font-semibold tracking-tight text-on-surface">
+            Your messages
+          </h2>
+          <p className="mt-2 text-[13px] leading-relaxed text-outline">
+            Choose a conversation to pick up where you left off.
           </p>
         </div>
       </main>
@@ -841,11 +846,11 @@ export const ChatArea = memo(function ChatArea({
   }
 
   return (
-    <main className="ambient flex flex-1 h-full relative overflow-hidden">
+    <main className="card relative flex h-full flex-1 overflow-hidden rounded-none border-0 md:rounded-2xl md:border">
       {/* Primary Chat Window */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Top Navigation Header */}
-        <header className="sticky top-0 z-30 flex h-[calc(4rem+env(safe-area-inset-top))] flex-shrink-0 items-center justify-between border-b border-outline-variant/40 bg-surface px-3 pt-[env(safe-area-inset-top)] sm:px-6">
+        <header className="sticky top-0 z-30 flex h-[calc(4.25rem+env(safe-area-inset-top))] flex-shrink-0 items-center justify-between border-b border-outline-variant bg-surface-container-lowest px-3 pt-[env(safe-area-inset-top)] sm:px-5">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               type="button"
@@ -862,16 +867,16 @@ export const ChatArea = memo(function ChatArea({
                 size={40}
               />
               {conversation.isOnline && (
-                <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border-2 border-white rounded-full" />
+                <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-surface-container-lowest bg-emerald-500" />
               )}
             </div>
             <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-on-surface truncate">
+              <h2 className="truncate text-sm font-semibold text-on-surface">
                 {conversation.contact?.name}
               </h2>
               {conversation.isOnline ? (
-                <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-600 rounded-full" /> Online
+                <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-500">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Online
                 </span>
               ) : (
                 <span className="text-[11px] text-outline">
@@ -881,33 +886,33 @@ export const ChatArea = memo(function ChatArea({
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <button
               onClick={() => onStartCall?.('voice')}
-              className="w-9 h-9 flex items-center justify-center text-primary hover:bg-surface-container-high rounded-full transition-all active:scale-95"
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-high hover:text-primary active:scale-95"
               title="Start Voice Call"
               aria-label={`Voice call ${conversation.contact?.name}`}
             >
-              <Phone className="w-4 h-4" />
+              <Phone className="h-[18px] w-[18px]" strokeWidth={1.75} />
             </button>
             <button
               onClick={() => onStartCall?.('video')}
-              className="w-9 h-9 flex items-center justify-center text-primary hover:bg-surface-container-high rounded-full transition-all active:scale-95"
+              className="flex h-9 w-9 items-center justify-center rounded-xl text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-high hover:text-primary active:scale-95"
               title="Start Video Call"
               aria-label={`Video call ${conversation.contact?.name}`}
             >
-              <Video className="w-4 h-4" />
+              <Video className="h-[18px] w-[18px]" strokeWidth={1.75} />
             </button>
             <button
               onClick={() => setShowInfoDrawer(!showInfoDrawer)}
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition-all active:scale-95 ${
+              className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors duration-150 active:scale-95 ${
                 showInfoDrawer
-                  ? 'bg-secondary-container text-primary'
-                  : 'text-on-surface-variant hover:bg-surface-container-high'
+                  ? 'bg-primary/15 text-primary'
+                  : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
               }`}
               title="Toggle Details Drawer"
             >
-              <Info className="w-4 h-4" />
+              <Info className="h-[18px] w-[18px]" strokeWidth={1.75} />
             </button>
           </div>
         </header>
@@ -939,10 +944,18 @@ export const ChatArea = memo(function ChatArea({
             </div>
           ) : messages.length === 0 ? (
             <div className="flex flex-1 items-center justify-center">
-              <div className="rounded-2xl border border-dashed border-outline-variant bg-surface px-8 py-6 text-center">
-                <h3 className="text-sm font-semibold text-on-surface">No messages yet</h3>
-                <p className="mt-1 text-xs text-outline">
-                  Send the first message to {conversation.contact?.name}.
+              <div className="animate-in fade-in duration-500 max-w-[16rem] text-center">
+                <Avatar
+                  src={conversation.contact?.avatar}
+                  name={conversation.contact?.name}
+                  size={56}
+                  className="mx-auto mb-4"
+                />
+                <h3 className="text-sm font-semibold text-on-surface">
+                  {conversation.contact?.name}
+                </h3>
+                <p className="mt-1.5 text-xs leading-relaxed text-outline">
+                  This is the beginning of your conversation. Say hello.
                 </p>
               </div>
             </div>
@@ -969,7 +982,7 @@ export const ChatArea = memo(function ChatArea({
           {/* Real-time Typing Bubble Animation */}
           {isContactTyping && (
             <div className="mb-2 flex items-center gap-2 self-start px-1 duration-200 animate-in fade-in slide-in-from-left-2">
-              <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-xs border border-surface-container-highest/60 bg-surface-container-low px-3 py-2.5 shadow-xs">
+              <div className="flex items-center gap-1.5 rounded-2xl rounded-bl-md bg-secondary-container px-3.5 py-3">
                 <span className="typing-dot h-1.5 w-1.5 rounded-full bg-primary" />
                 <span className="typing-dot h-1.5 w-1.5 rounded-full bg-primary [animation-delay:0.16s]" />
                 <span className="typing-dot h-1.5 w-1.5 rounded-full bg-primary [animation-delay:0.32s]" />
@@ -981,7 +994,7 @@ export const ChatArea = memo(function ChatArea({
         </div>
 
         {/* Message Input Box Bar */}
-        <div className="mobile-safe-composer safe-x flex-shrink-0 border-t border-outline-variant/40 bg-surface">
+        <div className="mobile-safe-composer safe-x flex-shrink-0 border-t border-outline-variant bg-surface-container-lowest">
           {/* Replying Preview Bar */}
           {replyingToMessage && (
             <div className="px-4 pt-3">
@@ -1110,7 +1123,10 @@ export const ChatArea = memo(function ChatArea({
             </p>
           )}
 
-          <form onSubmit={handleSend} className="flex items-center gap-2 sm:gap-3 p-3 sm:p-4">
+          <form
+            onSubmit={handleSend}
+            className="m-3 flex items-center gap-1.5 rounded-[1.75rem] bg-surface-container px-2 py-1.5 transition-colors focus-within:bg-surface-container-high sm:mx-4"
+          >
             <div ref={attachmentMenuRef} className="relative">
               {isAttachmentMenuOpen && (
                 <div
@@ -1186,13 +1202,13 @@ export const ChatArea = memo(function ChatArea({
                 title="Attach a file"
                 aria-label="Attach a file"
                 aria-expanded={isAttachmentMenuOpen}
-                className={`rounded-lg p-2 transition-colors disabled:opacity-40 ${
+                className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-150 disabled:opacity-35 ${
                   isAttachmentMenuOpen
-                    ? 'bg-secondary-container text-primary'
-                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-primary'
+                    ? 'bg-primary/15 text-primary'
+                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                 }`}
               >
-                <Paperclip className="h-5 w-5" />
+                <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.75} />
               </button>
             </div>
 
@@ -1207,8 +1223,8 @@ export const ChatArea = memo(function ChatArea({
                   handleSend(event);
                 }
               }}
-              placeholder={`Message ${conversation.contact?.name}...`}
-              className="flex-1 bg-white border border-outline-variant rounded-lg px-4 py-2.5 text-xs text-on-surface placeholder-outline focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none min-h-[42px] max-h-[140px] overflow-y-hidden leading-relaxed break-words"
+              placeholder={`Message ${conversation.contact?.name}`}
+              className="min-h-[40px] max-h-[140px] flex-1 resize-none overflow-y-hidden break-words bg-transparent px-2 py-2.5 text-[13px] leading-relaxed text-on-surface placeholder-outline focus:outline-none"
             />
 
             <div ref={emojiPickerRef} className="relative">
@@ -1223,13 +1239,13 @@ export const ChatArea = memo(function ChatArea({
                 title="Choose an emoji"
                 aria-label="Choose an emoji"
                 aria-expanded={isEmojiPickerOpen}
-                className={`p-2 rounded-lg transition-colors disabled:opacity-40 ${
+                className={`flex h-10 w-10 items-center justify-center rounded-full transition-colors duration-150 disabled:opacity-35 ${
                   isEmojiPickerOpen
-                    ? 'bg-secondary-container text-primary'
-                    : 'text-on-surface-variant hover:text-primary hover:bg-surface-container-high'
+                    ? 'bg-primary/15 text-primary'
+                    : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
                 }`}
               >
-                <Smile className="w-5 h-5" />
+                <Smile className="h-[18px] w-[18px]" strokeWidth={1.75} />
               </button>
             </div>
 
@@ -1237,7 +1253,7 @@ export const ChatArea = memo(function ChatArea({
               type="submit"
               disabled={(!inputText.trim() && !selectedFile) || isSending}
               aria-label={isSending ? 'Sending message' : 'Send message'}
-              className="p-2.5 bg-primary hover:bg-primary-container text-white rounded-lg disabled:opacity-40 disabled:hover:bg-primary transition-all active:scale-95"
+              className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-primary text-on-primary transition-all duration-150 hover:bg-primary-container active:scale-95 disabled:opacity-35 disabled:hover:bg-primary"
             >
               {isSending ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" />

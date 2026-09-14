@@ -1,45 +1,56 @@
 @import "tailwindcss";
 
+/* Warm neutral backdrop, white floating cards, one orange accent. Colour is
+   spent only where it carries meaning: you, unread, active, online. */
 @layer base {
   :root {
-    --primary: #0058be;
-    --primary-container: #2170e4;
+    --primary: #f0612a;
+    --primary-container: #ff8a45;
     --on-primary: #ffffff;
-    --surface: #f8f9fa;
-    --surface-bright: #f8f9fa;
-    --surface-dim: #d9dadb;
+    --surface: #efedea;
+    --surface-bright: #ffffff;
+    --surface-dim: #e4e1dd;
     --surface-container-lowest: #ffffff;
-    --surface-container-low: #f3f4f5;
-    --surface-container: #edeeef;
-    --surface-container-high: #e7e8e9;
-    --surface-container-highest: #e1e3e4;
-    --on-surface: #191c1d;
-    --on-surface-variant: #424754;
-    --outline: #727785;
-    --outline-variant: #c2c6d6;
-    --secondary-container: #d6e0f1;
-    --on-secondary-container: #596372;
+    --surface-container-low: #faf9f8;
+    --surface-container: #f4f3f1;
+    --surface-container-high: #ecebe8;
+    --surface-container-highest: #e3e1dd;
+    --on-surface: #1a1a1c;
+    --on-surface-variant: #5c5c60;
+    --outline: #8e8e93;
+    --outline-variant: #e8e6e2;
+    --secondary-container: #fdf0e4;
+    --on-secondary-container: #8a4420;
+
+    --card-bg: #ffffff;
+    --card-border: rgba(26, 26, 28, 0.06);
+    --card-shadow: 0 1px 2px rgba(26, 26, 28, 0.04), 0 10px 30px -18px rgba(26, 26, 28, 0.18);
+    --glass-bg: rgba(255, 255, 255, 0.78);
+    --glass-border: rgba(26, 26, 28, 0.06);
+    --glass-shadow: var(--card-shadow);
+    --glass-sheen: rgba(255, 255, 255, 0.9);
+    --ambient-warmth: rgba(240, 97, 42, 0.045);
   }
 }
 
 @theme {
-  --color-primary: #0058be;
-  --color-primary-container: #2170e4;
+  --color-primary: #f0612a;
+  --color-primary-container: #ff8a45;
   --color-on-primary: #ffffff;
-  --color-surface: #f8f9fa;
-  --color-surface-bright: #f8f9fa;
-  --color-surface-dim: #d9dadb;
+  --color-surface: #efedea;
+  --color-surface-bright: #ffffff;
+  --color-surface-dim: #e4e1dd;
   --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #f3f4f5;
-  --color-surface-container: #edeeef;
-  --color-surface-container-high: #e7e8e9;
-  --color-surface-container-highest: #e1e3e4;
-  --color-on-surface: #191c1d;
-  --color-on-surface-variant: #424754;
-  --color-outline: #727785;
-  --color-outline-variant: #c2c6d6;
-  --color-secondary-container: #d6e0f1;
-  --color-on-secondary-container: #596372;
+  --color-surface-container-low: #faf9f8;
+  --color-surface-container: #f4f3f1;
+  --color-surface-container-high: #ecebe8;
+  --color-surface-container-highest: #e3e1dd;
+  --color-on-surface: #1a1a1c;
+  --color-on-surface-variant: #5c5c60;
+  --color-outline: #8e8e93;
+  --color-outline-variant: #e8e6e2;
+  --color-secondary-container: #fdf0e4;
+  --color-on-secondary-container: #8a4420;
 
   --font-display: var(--font-bricolage), var(--font-sans), system-ui, sans-serif;
 
@@ -48,54 +59,63 @@
 
 /* Dark mode keeps the same semantic token names, so existing components retain
    their layout and automatically inherit the new palette. */
+/* Same warm family and the same orange, inverted: the backdrop stays the
+   darkest layer so the cards still read as sheets lying on top of it. */
 html.dark {
   color-scheme: dark;
-  --primary: #8ab4f8;
-  --primary-container: #5f91dc;
-  --on-primary: #062e68;
-  --surface: #111315;
-  --surface-bright: #191c1f;
-  --surface-dim: #0b0d0f;
-  --surface-container-lowest: #0b0d0f;
-  --surface-container-low: #171a1d;
-  --surface-container: #1d2125;
-  --surface-container-high: #272c31;
-  --surface-container-highest: #32383f;
-  --on-surface: #e4e7eb;
-  --on-surface-variant: #b8c0ca;
-  --outline: #8b96a3;
-  --outline-variant: #4b5561;
-  --secondary-container: #26364e;
-  --on-secondary-container: #c5d6f3;
+  --primary: #ff7a45;
+  --primary-container: #ff945f;
+  --on-primary: #2a0f00;
+  --surface: #131211;
+  --surface-bright: #232019;
+  --surface-dim: #0e0d0c;
+  --surface-container-lowest: #1b1917;
+  --surface-container-low: #201d1b;
+  --surface-container: #26221f;
+  --surface-container-high: #2d2926;
+  --surface-container-highest: #38332e;
+  --on-surface: #f1ede9;
+  --on-surface-variant: #b6afa8;
+  --outline: #8b837c;
+  --outline-variant: #343029;
+  --secondary-container: #35231a;
+  --on-secondary-container: #ffd6bd;
 
-  --color-primary: #8ab4f8;
-  --color-primary-container: #5f91dc;
-  --color-on-primary: #062e68;
-  --color-surface: #111315;
-  --color-surface-bright: #191c1f;
-  --color-surface-dim: #0b0d0f;
-  --color-surface-container-lowest: #0b0d0f;
-  --color-surface-container-low: #171a1d;
-  --color-surface-container: #1d2125;
-  --color-surface-container-high: #272c31;
-  --color-surface-container-highest: #32383f;
-  --color-on-surface: #e4e7eb;
-  --color-on-surface-variant: #b8c0ca;
-  --color-outline: #8b96a3;
-  --color-outline-variant: #4b5561;
-  --color-secondary-container: #26364e;
-  --color-on-secondary-container: #c5d6f3;
+  --color-primary: #ff7a45;
+  --color-primary-container: #ff945f;
+  --color-on-primary: #2a0f00;
+  --color-surface: #131211;
+  --color-surface-bright: #232019;
+  --color-surface-dim: #0e0d0c;
+  --color-surface-container-lowest: #1b1917;
+  --color-surface-container-low: #201d1b;
+  --color-surface-container: #26221f;
+  --color-surface-container-high: #2d2926;
+  --color-surface-container-highest: #38332e;
+  --color-on-surface: #f1ede9;
+  --color-on-surface-variant: #b6afa8;
+  --color-outline: #8b837c;
+  --color-outline-variant: #343029;
+  --color-secondary-container: #35231a;
+  --color-on-secondary-container: #ffd6bd;
+
+  --card-bg: #1b1917;
+  --card-border: rgba(255, 255, 255, 0.07);
+  --card-shadow: 0 1px 2px rgba(0, 0, 0, 0.45), 0 16px 40px -22px rgba(0, 0, 0, 0.7);
+  --glass-bg: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.07);
+  --glass-shadow: var(--card-shadow);
+  --glass-sheen: rgba(255, 255, 255, 0.1);
+  --ambient-warmth: rgba(255, 122, 69, 0.05);
 }
 
-html.dark [class~='bg-white'] { background-color: var(--surface-container-lowest); }
+html.dark [class~='bg-white'] { background-color: var(--surface-container); }
 html.dark [class~='bg-white/40'],
 html.dark [class~='bg-white/50'],
 html.dark [class~='bg-white/60'],
 html.dark [class~='bg-white/70'],
 html.dark [class~='bg-white/90'],
-html.dark [class~='bg-white/95'] { background-color: color-mix(in srgb, var(--surface-container-high) 88%, transparent); }
-html.dark .glass,
-html.dark .glass-chrome { background: color-mix(in srgb, var(--surface-container-high) 82%, transparent); border-color: color-mix(in srgb, var(--outline-variant) 65%, transparent); }
+html.dark [class~='bg-white/95'] { background-color: color-mix(in srgb, var(--surface-container) 90%, transparent); }
 
 /* Authentication chrome has a deliberately branded blue panel. Keep it dark
    enough in dark mode for the white logo copy and feature text to stay legible. */
@@ -115,68 +135,61 @@ html.dark .auth-mode-toggle {
 /* Liquid glass                                                       */
 /* ------------------------------------------------------------------ */
 
-/* Glass only reads as glass when there is something behind it to refract,
-   so the shell gets soft colour fields instead of a flat grey. */
+/* The backdrop the cards lie on: flat warm neutral, with the faintest breath of
+   the accent so it reads as warm paper rather than grey. */
 .ambient {
   position: relative;
   background-color: var(--surface);
-  background-image:
-    radial-gradient(55rem 38rem at 8% -8%, rgba(0, 88, 190, 0.38), transparent 62%),
-    radial-gradient(42rem 32rem at 102% 4%, rgba(124, 92, 232, 0.34), transparent 60%),
-    radial-gradient(48rem 38rem at 30% 108%, rgba(0, 172, 200, 0.3), transparent 62%),
-    radial-gradient(40rem 30rem at 88% 96%, rgba(236, 112, 168, 0.22), transparent 60%);
+  background-image: radial-gradient(70rem 50rem at 50% -20%, var(--ambient-warmth), transparent 65%);
   background-attachment: fixed;
 }
 
+/* Every panel in the shell is one of these sheets. */
+.card {
+  background-color: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow);
+}
+
 .glass {
-  background: rgba(255, 255, 255, 0.42);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
-  backdrop-filter: blur(24px) saturate(190%);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  box-shadow:
-    0 8px 32px -8px rgba(16, 24, 40, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
 /* Denser tint for chrome that sits above scrolling content. */
 .glass-chrome {
-  background: rgba(255, 255, 255, 0.55);
-  -webkit-backdrop-filter: blur(30px) saturate(200%);
-  backdrop-filter: blur(30px) saturate(200%);
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  box-shadow:
-    0 12px 40px -12px rgba(16, 24, 40, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  background: color-mix(in srgb, var(--surface-container-low) 82%, transparent);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  backdrop-filter: blur(28px) saturate(150%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
 }
 
-/* The specular sheen that sells the material: a bright top edge that
-   fades out before it reaches the bottom of the element. */
+/* A hairline of light along the top edge — the one cue that reads as a raised
+   physical surface. Kept to a single edge; a full overlay turns it milky. */
 .glass-sheen::before {
   content: '';
   position: absolute;
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
-  background: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.55) 0%,
-    rgba(255, 255, 255, 0.08) 32%,
-    transparent 60%
-  );
+  background: linear-gradient(to bottom, var(--glass-sheen), transparent 1px);
 }
 
-/* Selected pill inside a glass rail — tinted rather than opaque. */
+/* Selected pill inside the rail — tinted, with the accent carrying the state. */
 .glass-active {
-  background: rgba(0, 88, 190, 0.14);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    0 2px 10px -4px rgba(0, 88, 190, 0.45);
+  background: color-mix(in srgb, var(--primary) 16%, transparent);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 26%, transparent);
 }
 
 @media (prefers-reduced-transparency: reduce) {
   .glass,
   .glass-chrome {
-    background: rgba(255, 255, 255, 0.95);
+    background: var(--surface-container-low);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
@@ -242,6 +255,39 @@ html.dark .auth-mode-toggle {
   }
 }
 
+/* Empty states breathe rather than drift: the glow behind the mark swells on a
+   long cycle, so the panel reads as idle instead of broken, without anything
+   moving in the reader's peripheral vision. */
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.45; transform: scale(1); }
+  50% { opacity: 0.75; transform: scale(1.08); }
+}
+
+.glow-breathe {
+  animation: glow-breathe 6s ease-in-out infinite;
+}
+
+/* Concentric rings fading outward from the empty-state mark. */
+.empty-rings::before,
+.empty-rings::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  border-radius: 9999px;
+  border: 1px solid var(--glass-border);
+  pointer-events: none;
+}
+.empty-rings::before { width: 9rem; height: 9rem; }
+.empty-rings::after { width: 14rem; height: 14rem; opacity: 0.55; }
+
+@media (prefers-reduced-motion: reduce) {
+  .glow-breathe {
+    animation: none;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -250,11 +296,11 @@ html.dark .auth-mode-toggle {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #e1e3e4;
+  background: color-mix(in srgb, var(--outline) 32%, transparent);
   border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #c2c6d6;
+  background: color-mix(in srgb, var(--outline) 55%, transparent);
 }
 
 html {

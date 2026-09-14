@@ -201,7 +201,7 @@ export const SettingsView = memo(function SettingsView({
   };
 
   return (
-    <div className="ambient flex h-full min-w-0 flex-1 select-none flex-col overflow-hidden md:ml-[100px] md:flex-row">
+    <div className="card flex h-full min-w-0 flex-1 select-none flex-col overflow-hidden rounded-none border-0 md:flex-row md:rounded-2xl md:border">
       {/* Section list. On mobile this is a full screen of its own and the content
           pane replaces it once a section is picked; from md up both are visible. */}
       <div
