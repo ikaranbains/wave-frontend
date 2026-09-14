@@ -22,8 +22,8 @@ export const Sidebar = memo(function Sidebar({
   return (
     <header
       className={`${hideOnMobile ? 'hidden' : 'flex'} card select-none md:flex
-        mobile-safe-tabs safe-x fixed bottom-0 left-0 z-50 h-16 w-full flex-row items-center justify-around rounded-none border-x-0 border-b-0 px-2
-        md:static md:z-auto md:h-14 md:justify-between md:rounded-2xl md:border md:px-3`}
+        mobile-safe-tabs safe-x fixed bottom-0 left-0 z-50 h-16 w-full flex-row items-center justify-between rounded-none border-x-0 border-b-0 px-3
+        md:static md:z-auto md:h-14 md:rounded-2xl md:border`}
     >
       {/* Brand */}
       <button
@@ -53,7 +53,7 @@ export const Sidebar = memo(function Sidebar({
       </button>
 
       {/* Primary navigation */}
-      <nav className="flex flex-row items-center gap-1 md:gap-0.5">
+      <nav className="flex flex-1 flex-row items-center justify-around gap-1 md:flex-none md:justify-end md:gap-0.5">
         <button
           onClick={() => setActiveTab('messages')}
           title="Messages"

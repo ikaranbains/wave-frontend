@@ -120,7 +120,7 @@ html.dark [class~='bg-white/95'] { background-color: color-mix(in srgb, var(--su
 /* Authentication chrome has a deliberately branded blue panel. Keep it dark
    enough in dark mode for the white logo copy and feature text to stay legible. */
 html.dark .auth-brand {
-  background-color: #1d3557;
+  background-color: #3d1b0c;
 }
 
 html.dark .auth-submit {

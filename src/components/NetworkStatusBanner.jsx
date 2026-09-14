@@ -59,9 +59,9 @@ export function NetworkStatusBanner() {
   if (isOnline && !showQueueOnly && !justReconnected) return null;
 
   const tone = !isOnline
-    ? 'bg-slate-900 text-white'
+    ? 'bg-stone-900 text-white'
     : showQueueOnly
-      ? 'bg-amber-500 text-slate-900'
+      ? 'bg-amber-500 text-stone-900'
       : 'bg-emerald-600 text-white';
 
   return (

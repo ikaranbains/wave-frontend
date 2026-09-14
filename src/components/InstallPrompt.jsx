@@ -103,7 +103,7 @@ export function InstallPrompt() {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-[125] flex justify-center px-4 md:bottom-6">
-      <div className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl border border-outline-variant/60 bg-white/95 p-3 shadow-2xl backdrop-blur">
+      <div className="card pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl p-3">
         <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-secondary-container text-primary">
           {isIOS ? <Share className="h-4 w-4" /> : <Download className="h-4 w-4" />}
         </span>
@@ -123,7 +123,7 @@ export function InstallPrompt() {
               <button
                 type="button"
                 onClick={install}
-                className="mt-2 rounded-xl bg-primary px-3 py-1.5 text-xs font-semibold text-white transition-transform active:scale-95"
+                className="mt-2 rounded-full bg-primary px-3.5 py-1.5 text-xs font-semibold text-on-primary transition-transform active:scale-95"
               >
                 Install app
               </button>

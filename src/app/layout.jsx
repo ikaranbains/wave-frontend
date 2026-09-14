@@ -64,9 +64,11 @@ export const viewport = {
   viewportFit: "cover",
   // Keep the composer above the on-screen keyboard instead of letting it scroll away.
   interactiveWidget: "resizes-content",
+  // Matches --surface in globals.css, so the status bar blends into the backdrop
+  // the cards sit on rather than banding against it.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f8f9fa" },
-    { media: "(prefers-color-scheme: dark)", color: "#0b1220" },
+    { media: "(prefers-color-scheme: light)", color: "#efedea" },
+    { media: "(prefers-color-scheme: dark)", color: "#131211" },
   ],
 };
 

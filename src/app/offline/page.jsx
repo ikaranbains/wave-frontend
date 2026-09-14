@@ -8,8 +8,8 @@ export const metadata = {
 
 export default function OfflinePage() {
   return (
-    <main className="flex min-h-dvh w-full items-center justify-center bg-surface px-6 py-10">
-      <div className="w-full max-w-sm rounded-3xl border border-outline-variant/60 bg-white p-8 text-center shadow-xs">
+    <main className="ambient flex min-h-dvh w-full items-center justify-center px-6 py-10">
+      <div className="card w-full max-w-sm rounded-2xl p-8 text-center">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-secondary-container text-primary">
           <CloudOff className="h-7 w-7" />
         </div>
@@ -20,7 +20,7 @@ export default function OfflinePage() {
         </p>
         <Link
           href="/"
-          className="mt-6 inline-flex items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-xs font-semibold text-white"
+          className="mt-6 inline-flex items-center justify-center rounded-full bg-primary px-5 py-2.5 text-xs font-semibold text-on-primary"
         >
           Try again
         </Link>

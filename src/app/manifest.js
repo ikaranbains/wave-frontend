@@ -12,8 +12,8 @@ export default function manifest() {
     display: 'standalone',
     display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
     orientation: 'any',
-    background_color: '#f8f9fa',
-    theme_color: '#0058be',
+    background_color: '#efedea',
+    theme_color: '#f0612a',
     categories: ['social', 'productivity', 'communication'],
     prefer_related_applications: false,
     icons: [
