@@ -33,7 +33,7 @@ export const Sidebar = memo(function Sidebar({
         aria-label="Wave home"
         className="hidden items-center gap-2.5 pl-1 pr-2 transition-transform active:scale-95 md:flex"
       >
-        <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-lg bg-secondary-container">
+        <span className="flex h-8 w-8 items-center justify-center overflow-hidden rounded-xl bg-secondary-container">
           <Image src="/wave-mark.png" alt="" width={32} height={32} className="h-full w-full object-contain" />
         </span>
         <span className="font-display text-[15px] font-semibold tracking-tight text-on-surface">

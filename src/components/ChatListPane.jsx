@@ -49,7 +49,7 @@ export const ChatListPane = memo(function ChatListPane({
             onClick={() => setIsSearchOpen((open) => !open)}
             aria-label="Search chats"
             aria-expanded={isSearchOpen}
-            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+            className={`flex h-8 w-8 items-center justify-center rounded-xl transition-colors duration-150 ${
               isSearchOpen
                 ? 'bg-primary/12 text-primary'
                 : 'text-outline hover:bg-surface-container hover:text-on-surface'

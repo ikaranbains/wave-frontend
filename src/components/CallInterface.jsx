@@ -30,42 +30,42 @@ export function IncomingCall({ call, onAccept, onDecline }) {
   const isVideoCall = call.type === 'video';
 
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/55 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-sm sm:p-5">
-      <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-slate-900 p-7 text-center text-white shadow-2xl">
+    <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] backdrop-blur-sm sm:p-5">
+      <div className="w-full max-w-sm rounded-2xl border border-white/15 bg-black p-7 text-center text-white shadow-2xl">
         <div className="relative mx-auto mb-4 w-fit">
           <div className="absolute inset-0 animate-ping rounded-full bg-primary/30" />
           <Avatar
             src={call.caller?.avatar}
             name={call.caller?.name || 'Caller'}
             size={96}
-            className="relative border-4 border-slate-800 shadow-xl"
+            className="relative ring-4 ring-white/10"
             fallbackClassName="text-3xl"
           />
         </div>
 
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+        <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/60">
           Incoming {isVideoCall ? 'video' : 'voice'} call
         </p>
-        <h2 className="mt-2 text-xl font-semibold">{call.caller?.name || 'Someone on Wave'}</h2>
+        <h2 className="mt-2 font-display text-xl font-semibold tracking-tight">{call.caller?.name || 'Someone on Wave'}</h2>
 
         <div className="mt-8 flex items-center justify-center gap-8">
           <button
             type="button"
             onClick={onDecline}
-            className="flex flex-col items-center gap-2 text-xs text-slate-300"
+            className="flex flex-col items-center gap-2 text-[13px] text-white/70 active:scale-95"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-500 transition-transform hover:scale-105">
-              <PhoneOff className="h-6 w-6" />
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 text-white transition-colors duration-150 hover:bg-red-500">
+              <PhoneOff className="h-6 w-6" strokeWidth={1.9} />
             </span>
             Decline
           </button>
           <button
             type="button"
             onClick={onAccept}
-            className="flex flex-col items-center gap-2 text-xs text-slate-300"
+            className="flex flex-col items-center gap-2 text-[13px] text-white/70 active:scale-95"
           >
-            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 transition-transform hover:scale-105">
-              {isVideoCall ? <Video className="h-6 w-6" /> : <Phone className="h-6 w-6" />}
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500 text-white transition-colors duration-150 hover:bg-emerald-400">
+              {isVideoCall ? <Video className="h-6 w-6" strokeWidth={1.9} /> : <Phone className="h-6 w-6" strokeWidth={1.9} />}
             </span>
             Accept
           </button>
@@ -85,17 +85,17 @@ function ControlButton({ onClick, disabled, active, label, children, tone }) {
         aria-label={label}
         title={label}
         aria-pressed={active === undefined ? undefined : active}
-        className={`flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-full transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${
+        className={`flex h-12 w-12 sm:h-13 sm:w-13 items-center justify-center rounded-full transition-colors duration-150 active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${
           tone === 'danger'
-            ? 'bg-red-600 text-white shadow-lg shadow-red-600/40 hover:bg-red-700'
+            ? 'bg-red-600 text-white hover:bg-red-500'
             : active
             ? 'bg-white/15 text-white ring-1 ring-white/20 hover:bg-white/25 backdrop-blur-md'
-            : 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/40 hover:bg-rose-500/30'
+            : 'bg-red-500/20 text-red-400 ring-1 ring-red-500/40 hover:bg-red-500/30'
         }`}
       >
         {children}
       </button>
-      <span className="text-[10px] sm:text-[11px] font-medium text-white/70 truncate max-w-full">{label}</span>
+      <span className="max-w-full truncate text-[11px] font-medium text-white/70">{label}</span>
     </div>
   );
 }
@@ -559,7 +559,7 @@ export function CallInterface({
               onMaximize?.();
             }
           }}
-          className="fixed top-0 inset-x-0 z-[85] flex h-[calc(3.25rem+env(safe-area-inset-top))] cursor-pointer select-none items-center justify-between border-b border-white/10 bg-[#0c1317] px-3 pt-[env(safe-area-inset-top)] text-white shadow-xl backdrop-blur-md transition-colors hover:bg-[#111b21] sm:px-6"
+          className="fixed top-0 inset-x-0 z-[85] flex h-[calc(3.25rem+env(safe-area-inset-top))] cursor-pointer select-none items-center justify-between border-b border-white/10 bg-black/95 px-3 pt-[env(safe-area-inset-top)] text-white shadow-xl backdrop-blur-md transition-colors duration-150 hover:bg-black/85 sm:px-6"
         >
           {/* Left: Microphone Mute Toggle Button */}
           <button
@@ -569,23 +569,23 @@ export function CallInterface({
               toggleMicrophone();
             }}
             aria-label={isMicEnabled ? 'Mute microphone' : 'Unmute microphone'}
-            className={`flex h-9 w-9 items-center justify-center rounded-full transition-all active:scale-95 ${
+            className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors duration-150 active:scale-95 ${
               !isMicEnabled
-                ? 'bg-rose-500/25 text-rose-400 ring-1 ring-rose-500/40'
+                ? 'bg-red-500/25 text-red-400 ring-1 ring-red-500/40'
                 : 'bg-white/10 text-white hover:bg-white/20'
             }`}
           >
-            {isMicEnabled ? <Mic className="h-4 w-4" /> : <MicOff className="h-4 w-4" />}
+            {isMicEnabled ? <Mic className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <MicOff className="h-[18px] w-[18px]" strokeWidth={1.9} />}
           </button>
 
           {/* Center: Video/Audio icon + Contact Name - Status / Timer */}
           <div className="flex items-center gap-2 min-w-0 px-2">
             {isVideoCall ? (
-              <Video className="h-4 w-4 flex-shrink-0 text-emerald-400 fill-emerald-400" />
+              <Video className="h-4 w-4 flex-shrink-0 fill-emerald-400 text-emerald-400" strokeWidth={1.9} />
             ) : (
-              <Phone className="h-4 w-4 flex-shrink-0 text-emerald-400 fill-emerald-400" />
+              <Phone className="h-4 w-4 flex-shrink-0 fill-emerald-400 text-emerald-400" strokeWidth={1.9} />
             )}
-            <span className="truncate text-xs sm:text-sm font-semibold text-emerald-400">
+            <span className="truncate text-[13px] font-semibold text-emerald-400">
               {call.contact?.name || 'User'} - {statusText}
             </span>
             {(connectionStatus === 'ringing' || connectionStatus === 'connecting') && (
@@ -604,9 +604,9 @@ export function CallInterface({
               handleEnd();
             }}
             aria-label="End call"
-            className="flex h-9 w-9 items-center justify-center rounded-full bg-red-600 text-white shadow-md shadow-red-600/40 transition-transform hover:bg-red-700 active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-red-600 text-white transition-colors duration-150 hover:bg-red-500 active:scale-95"
           >
-            <PhoneOff className="h-4 w-4" />
+            <PhoneOff className="h-[18px] w-[18px]" strokeWidth={1.9} />
           </button>
         </header>
       )}
@@ -623,10 +623,10 @@ export function CallInterface({
           tabIndex={0}
           aria-label="Floating video call preview. Tap to return to call or drag to move."
           title="Tap to return to call, or drag to move"
-          className="fixed z-[80] flex flex-col overflow-hidden rounded-2xl border border-white/20 bg-slate-950 shadow-2xl shadow-black/80 ring-1 ring-black/50 select-none touch-none cursor-grab active:cursor-grabbing w-28 h-44 sm:w-32 sm:h-50 md:w-40 md:h-60 transition-shadow hover:ring-white/40"
+          className="fixed z-[80] flex h-44 w-28 cursor-grab select-none touch-none flex-col overflow-hidden rounded-2xl border border-white/15 bg-black shadow-2xl transition-colors duration-150 hover:border-white/30 active:cursor-grabbing sm:h-50 sm:w-32 md:h-60 md:w-40"
         >
           {/* Main Remote Video Stream in PiP */}
-          <div className="relative h-full w-full bg-slate-950">
+          <div className="relative h-full w-full bg-black">
             <video
               ref={pipRemoteVideoRef}
               autoPlay
@@ -639,21 +639,21 @@ export function CallInterface({
 
             {/* Fallback avatar if remote camera is off or connecting */}
             {!hasRemoteVideo && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_40%,#1e3a5f_0%,#0f172a_60%,#020617_100%)] px-2 text-center pointer-events-none">
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center bg-[radial-gradient(circle_at_50%_40%,color-mix(in_srgb,var(--color-primary)_16%,black)_0%,black_70%)] px-2 text-center">
                 <Avatar
                   src={call.contact?.avatar}
                   name={call.contact?.name}
                   size={48}
                   className="ring-2 ring-white/15"
                 />
-                <span className="mt-2 text-[10px] font-medium text-white/70 truncate max-w-full">
+                <span className="mt-2 max-w-full truncate text-[11px] font-medium text-white/70">
                   {connectionStatus === 'connected' ? 'Camera off' : statusText}
                 </span>
               </div>
             )}
 
             {/* Inset Local Self-View in bottom-right corner */}
-            <div className="absolute bottom-2 right-2 h-14 w-10 sm:h-16 sm:w-11 md:h-20 md:w-14 overflow-hidden rounded-xl border border-white/30 bg-slate-900 shadow-lg pointer-events-none">
+            <div className="pointer-events-none absolute bottom-2 right-2 h-14 w-10 overflow-hidden rounded-xl border border-white/20 bg-black shadow-lg sm:h-16 sm:w-11 md:h-20 md:w-14">
               <video
                 ref={pipLocalVideoRef}
                 autoPlay
@@ -664,19 +664,19 @@ export function CallInterface({
                 }`}
               />
               {!isCameraEnabled && (
-                <div className="absolute inset-0 flex items-center justify-center bg-slate-900/95 text-white/50">
-                  <VideoOff className="h-3.5 w-3.5" />
+                <div className="absolute inset-0 flex items-center justify-center bg-black/90 text-white/50">
+                  <VideoOff className="h-3.5 w-3.5" strokeWidth={1.9} />
                 </div>
               )}
             </div>
 
             {/* Top-Right Maximize Icon Pill */}
-            <div className="absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/90 backdrop-blur-sm shadow pointer-events-none">
-              <Maximize2 className="h-3 w-3" />
+            <div className="pointer-events-none absolute top-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white/90 backdrop-blur-sm">
+              <Maximize2 className="h-3 w-3" strokeWidth={1.9} />
             </div>
 
             {/* Bottom-Left Contact Name Pill */}
-            <div className="absolute bottom-2 left-2 max-w-[calc(100%-52px)] truncate rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur-sm pointer-events-none">
+            <div className="pointer-events-none absolute bottom-2 left-2 max-w-[calc(100%-52px)] truncate rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white/90 backdrop-blur-sm">
               {call.contact?.name || 'User'}
             </div>
           </div>
@@ -695,14 +695,14 @@ export function CallInterface({
 
         {/* Call Window: Fixed WhatsApp aspect on Desktop, Fullscreen on Mobile */}
         <div
-          className={`relative flex flex-col overflow-hidden bg-slate-950 transition-all duration-300 ${
+          className={`relative flex flex-col overflow-hidden bg-black transition-all duration-300 ${
             isFullscreen
               ? 'fixed inset-0 h-dvh w-full rounded-none'
-              : 'h-dvh w-full md:h-[560px] md:max-h-[88vh] md:w-[800px] md:max-w-[94vw] md:rounded-3xl md:border md:border-white/15 md:shadow-2xl md:shadow-black/90'
+              : 'h-dvh w-full md:h-[560px] md:max-h-[88vh] md:w-[800px] md:max-w-[94vw] md:rounded-2xl md:border md:border-white/15 md:shadow-2xl'
           }`}
         >
           {/* Stage Video & Fallback */}
-          <div className="absolute inset-0 z-0 bg-slate-950">
+          <div className="absolute inset-0 z-0 bg-black">
             {/* Remote Video Track */}
             {isVideoCall && (
               <video
@@ -718,7 +718,7 @@ export function CallInterface({
 
             {/* Fallback / Avatar Stage (shown when audio call or remote video is off) */}
             {(!isVideoCall || !hasRemoteVideo) && (
-              <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_38%,#1e3a5f_0%,#0f172a_48%,#020617_100%)]">
+              <div className="absolute inset-0 z-0 bg-[radial-gradient(circle_at_50%_38%,color-mix(in_srgb,var(--color-primary)_16%,black)_0%,black_62%)]">
                 <div className="flex h-full flex-col items-center justify-center px-6">
                   <div className="relative flex items-center justify-center">
                     {(isConnected || connectionStatus === 'ringing') && (
@@ -736,12 +736,12 @@ export function CallInterface({
                     />
                   </div>
 
-                  <h2 className="mt-6 font-display text-2xl sm:text-3xl font-bold tracking-tight text-center">
+                  <h2 className="mt-6 text-center font-display text-2xl font-semibold tracking-tight sm:text-3xl">
                     {call.contact?.name}
                   </h2>
-                  <p className="mt-2 flex items-center gap-2 text-sm text-white/60">
+                  <p className="mt-2 flex items-center gap-2 text-[13px] text-white/60">
                     {connectionStatus === 'connecting' && (
-                      <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                      <LoaderCircle className="h-3.5 w-3.5 animate-spin" strokeWidth={1.9} />
                     )}
                     <span className={isConnected ? 'tabular-nums text-white/80' : ''}>
                       {statusText}
@@ -760,7 +760,7 @@ export function CallInterface({
 
           {/* Floating Self View (PiP) */}
           {isVideoCall && (
-            <div className="absolute right-4 top-16 sm:top-18 z-20 h-36 w-26 sm:h-44 sm:w-32 md:h-48 md:w-36 overflow-hidden rounded-2xl bg-slate-900 ring-2 ring-white/20 shadow-2xl transition-all">
+            <div className="absolute right-4 top-16 z-20 h-36 w-26 overflow-hidden rounded-2xl bg-black shadow-2xl ring-1 ring-white/20 sm:top-18 sm:h-44 sm:w-32 md:h-48 md:w-36">
               <video
                 ref={localVideoRef}
                 autoPlay
@@ -771,9 +771,9 @@ export function CallInterface({
                 }`}
               />
               {!isCameraEnabled && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-slate-900/90 text-white/50">
-                  <VideoOff className="h-6 w-6" />
-                  <span className="text-[10px] font-medium">You</span>
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/90 text-white/50">
+                  <VideoOff className="h-6 w-6" strokeWidth={1.9} />
+                  <span className="text-[11px] font-medium">You</span>
                 </div>
               )}
             </div>
@@ -785,21 +785,21 @@ export function CallInterface({
               <button
                 type="button"
                 onClick={handleMinimize}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md transition-all hover:bg-white/25 active:scale-95"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white backdrop-blur-md transition-colors duration-150 hover:bg-white/20 active:scale-95"
                 aria-label="Minimize call and return to chats"
                 title="Back to chats"
               >
-                <ChevronDown className="h-5 w-5" />
+                <ChevronDown className="h-[18px] w-[18px]" strokeWidth={1.9} />
               </button>
               <div>
-                <p className="font-display text-sm sm:text-base font-bold leading-tight">
+                <p className="font-display text-[15px] font-semibold leading-tight tracking-tight">
                   {call.contact?.name}
                 </p>
-                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-white/70">
+                <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-white/70">
                   {isVideoCall ? (
-                    <Video className="h-3.5 w-3.5 text-emerald-400" />
+                    <Video className="h-3.5 w-3.5 text-emerald-400" strokeWidth={1.9} />
                   ) : (
-                    <Phone className="h-3.5 w-3.5 text-emerald-400" />
+                    <Phone className="h-3.5 w-3.5 text-emerald-400" strokeWidth={1.9} />
                   )}
                   <span>{isVideoCall ? 'Video call' : 'Voice call'}</span>
                   {isConnected && (
@@ -814,26 +814,26 @@ export function CallInterface({
               <button
                 type="button"
                 onClick={() => setIsFullscreen((prev) => !prev)}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-md transition-all hover:bg-white/25 active:scale-95"
+                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/10 text-white backdrop-blur-md transition-colors duration-150 hover:bg-white/20 active:scale-95"
                 title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
                 aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
               >
-                {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                {isFullscreen ? <Minimize2 className="h-[18px] w-[18px]" strokeWidth={1.9} /> : <Maximize2 className="h-[18px] w-[18px]" strokeWidth={1.9} />}
               </button>
             </div>
           </div>
 
           {/* Error / Audio playback warning badge */}
           {(callError || !canPlayAudio) && (
-            <div className="absolute left-1/2 top-20 z-40 w-[min(90%,380px)] -translate-x-1/2 rounded-2xl bg-black/80 px-4 py-2.5 text-center text-xs backdrop-blur-md border border-white/10 shadow-xl">
+            <div className="absolute left-1/2 top-20 z-40 w-[min(90%,380px)] -translate-x-1/2 rounded-2xl border border-white/10 bg-black/80 px-4 py-2.5 text-center text-[13px] shadow-xl backdrop-blur-md">
               {callError && <p className="text-white/90">{callError}</p>}
               {!canPlayAudio && (
                 <button
                   type="button"
                   onClick={enableAudioPlayback}
-                  className="mt-2 inline-flex items-center gap-2 rounded-xl bg-white px-3 py-1.5 font-semibold text-slate-900"
+                  className="mt-2 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 font-semibold text-on-primary transition-colors duration-150 hover:bg-primary-container active:scale-95"
                 >
-                  <Volume2 className="h-3.5 w-3.5" />
+                  <Volume2 className="h-3.5 w-3.5" strokeWidth={1.9} />
                   Enable call audio
                 </button>
               )}
@@ -842,14 +842,14 @@ export function CallInterface({
 
           {/* Floating Controls Dock (WhatsApp Style) */}
           <div className="absolute inset-x-0 bottom-6 z-30 flex justify-center px-4 pointer-events-none">
-            <div className="pointer-events-auto flex items-center gap-3 sm:gap-4 rounded-full bg-slate-900/90 px-5 py-3 ring-1 ring-white/15 backdrop-blur-2xl shadow-2xl">
+            <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-black/80 px-5 py-3 shadow-2xl ring-1 ring-white/15 backdrop-blur-2xl sm:gap-4">
               <ControlButton
                 onClick={toggleMicrophone}
                 disabled={!isConnected}
                 active={isMicEnabled}
                 label={isMicEnabled ? 'Mute' : 'Unmuted'}
               >
-                {isMicEnabled ? <Mic className="h-5 w-5" /> : <MicOff className="h-5 w-5" />}
+                {isMicEnabled ? <Mic className="h-5 w-5" strokeWidth={1.9} /> : <MicOff className="h-5 w-5" strokeWidth={1.9} />}
               </ControlButton>
 
               <ControlButton
@@ -858,7 +858,7 @@ export function CallInterface({
                 active={true}
                 label={isSpeakerOn ? 'Speaker' : 'Earpiece'}
               >
-                {isSpeakerOn ? <Volume2 className="h-5 w-5" /> : <Headphones className="h-5 w-5" />}
+                {isSpeakerOn ? <Volume2 className="h-5 w-5" strokeWidth={1.9} /> : <Headphones className="h-5 w-5" strokeWidth={1.9} />}
               </ControlButton>
 
               {isVideoCall && (
@@ -868,12 +868,12 @@ export function CallInterface({
                   active={isCameraEnabled}
                   label={isCameraEnabled ? 'Stop Video' : 'Start Video'}
                 >
-                  {isCameraEnabled ? <Video className="h-5 w-5" /> : <VideoOff className="h-5 w-5" />}
+                  {isCameraEnabled ? <Video className="h-5 w-5" strokeWidth={1.9} /> : <VideoOff className="h-5 w-5" strokeWidth={1.9} />}
                 </ControlButton>
               )}
 
               <ControlButton onClick={handleEnd} tone="danger" label="End">
-                <PhoneOff className="h-5 w-5" />
+                <PhoneOff className="h-5 w-5" strokeWidth={1.9} />
               </ControlButton>
             </div>
           </div>

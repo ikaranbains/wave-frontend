@@ -222,7 +222,7 @@ const MessageItem = memo(function MessageItem({
                   <div className={msg.text ? 'mt-2' : ''}>
                     {msg.attachment.type === 'image' ? (
                       <div
-                        className="relative group/img rounded-lg overflow-hidden border border-white/20 min-h-70 max-h-70 bg-cover bg-center"
+                        className="relative group/img rounded-xl overflow-hidden min-h-70 max-h-70 bg-cover bg-center"
                         style={{
                           backgroundImage: microPreview ? `url("${microPreview}")` : undefined,
                         }}
@@ -241,7 +241,7 @@ const MessageItem = memo(function MessageItem({
                         src={msg.attachment.url}
                         controls
                         preload="metadata"
-                        className="max-h-64 w-64 rounded-lg bg-black"
+                        className="max-h-64 w-64 rounded-xl bg-black"
                       >
                         Your browser does not support video playback.
                       </video>
@@ -268,7 +268,7 @@ const MessageItem = memo(function MessageItem({
                         target="_blank"
                         rel="noreferrer"
                         download={msg.attachment.name}
-                        className="flex min-w-56 items-center gap-2 rounded-lg bg-black/10 p-2 text-xs transition-colors hover:bg-black/15"
+                        className="flex min-w-56 items-center gap-2 rounded-xl bg-black/10 p-2 text-xs transition-colors duration-150 hover:bg-black/15"
                       >
                         <FileText className="w-4 h-4 flex-shrink-0" />
                         <span className="min-w-0 flex-1">
@@ -327,7 +327,7 @@ const MessageItem = memo(function MessageItem({
           )}
           {msg.isSentByMe && msg.status === 'read' && (
             <CheckCheck
-              className="h-3.5 w-3.5 text-blue-500"
+              className="h-3.5 w-3.5 text-primary"
               aria-label="Read"
               title="Read"
             />
@@ -353,7 +353,7 @@ const MessageItem = memo(function MessageItem({
           {isMenuOpen && (
             <div
               ref={menuRef}
-              className={`absolute z-50 bottom-full mb-1 w-44 rounded-2xl border border-outline-variant/60 bg-white p-1.5 shadow-2xl ${
+              className={`card absolute z-50 bottom-full mb-1 w-44 rounded-2xl p-1.5 ${
                 msg.isSentByMe ? 'right-0' : 'left-0'
               }`}
             >
@@ -412,7 +412,7 @@ const MessageImageAttachment = memo(function MessageImageAttachment({ url, name,
 
   if (hasError) {
     return (
-      <div className="flex flex-col items-center justify-center p-4 rounded-lg bg-black/10 text-on-surface-variant text-xs border border-outline-variant/40 min-h-28 text-center select-none">
+      <div className="flex flex-col items-center justify-center p-4 rounded-xl bg-black/10 text-on-surface-variant text-xs min-h-28 text-center select-none">
         <ImageOff className="w-5 h-5 mb-1.5 opacity-60" />
         <span className="font-medium text-[11px]">Image unavailable</span>
         {name && <span className="text-[10px] opacity-70 truncate max-w-48 mt-0.5">{name}</span>}
@@ -421,7 +421,7 @@ const MessageImageAttachment = memo(function MessageImageAttachment({ url, name,
   }
 
   return (
-    <div className="relative group/img rounded-lg overflow-hidden border border-white/20 min-h-70 max-h-70 bg-black/5">
+    <div className="relative group/img rounded-xl overflow-hidden min-h-70 max-h-70 bg-black/5">
       <Image
         src={url}
         alt={name || 'Attachment'}
@@ -998,13 +998,13 @@ export const ChatArea = memo(function ChatArea({
           {/* Replying Preview Bar */}
           {replyingToMessage && (
             <div className="px-4 pt-3">
-              <div className="flex items-center justify-between gap-3 rounded-xl border-l-4 border-l-primary border border-outline-variant/60 bg-white p-2.5 shadow-xs text-xs">
+              <div className="flex items-center justify-between gap-3 rounded-xl border-l-4 border-l-primary bg-surface-container p-2.5 text-xs">
                 <div className="flex items-center gap-2.5 min-w-0 flex-1">
                   {replyingToMessage.attachment?.url && replyingToMessage.attachment?.type === 'image' && (
                     <ReplyImageThumbnail
                       url={replyingToMessage.attachment.url}
                       alt="Reply thumbnail"
-                      className="w-9 h-9 rounded-lg object-cover flex-shrink-0 border border-outline-variant/60"
+                      className="w-9 h-9 rounded-xl object-cover flex-shrink-0"
                     />
                   )}
                   <div className="min-w-0 flex-1">
@@ -1036,7 +1036,7 @@ export const ChatArea = memo(function ChatArea({
           )}
           {selectedFile && (
             <div className="px-4 pt-3">
-              <div className="flex max-w-md items-center gap-3 rounded-xl border border-outline-variant/60 bg-white p-2.5 shadow-xs">
+              <div className="flex max-w-md items-center gap-3 rounded-xl bg-surface-container p-2.5">
                 {selectedFilePreview ? (
                   <Image
                     src={selectedFilePreview}
@@ -1044,18 +1044,18 @@ export const ChatArea = memo(function ChatArea({
                     width={44}
                     height={44}
                     unoptimized
-                    className="h-11 w-11 rounded-lg object-cover"
+                    className="h-11 w-11 rounded-xl object-cover"
                   />
                 ) : selectedFile.type.startsWith('audio/') ? (
-                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary-container text-on-secondary-container">
                     <Headphones className="h-5 w-5" />
                   </div>
                 ) : selectedFile.type.startsWith('video/') ? (
-                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-rose-100 text-rose-600">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary-container text-on-secondary-container">
                     <Video className="h-5 w-5" />
                   </div>
                 ) : (
-                  <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-blue-100 text-primary">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-secondary-container text-primary">
                     <FileText className="h-5 w-5" />
                   </div>
                 )}
@@ -1132,7 +1132,7 @@ export const ChatArea = memo(function ChatArea({
                 <div
                   role="menu"
                   aria-label="Attach a file"
-                  className="absolute bottom-12 left-0 z-50 w-52 overflow-hidden rounded-2xl border border-outline-variant/60 bg-white p-2 shadow-2xl"
+                  className="card absolute bottom-12 left-0 z-50 w-52 overflow-hidden rounded-2xl p-2"
                 >
                   <button
                     type="button"
@@ -1151,7 +1151,7 @@ export const ChatArea = memo(function ChatArea({
                     onClick={() => documentInputRef.current?.click()}
                     className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-xs text-on-surface hover:bg-surface-container-low"
                   >
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary-container text-primary">
                       <FileText className="h-4 w-4" />
                     </span>
                     Document
@@ -1285,7 +1285,7 @@ export const ChatArea = memo(function ChatArea({
               src={conversation.contact?.avatar}
               name={conversation.contact?.name}
               size={80}
-              className="mb-3 border-2 border-white shadow-xs"
+              className="mb-3"
             />
             <h4 className="text-sm font-semibold text-on-surface">
               {conversation.contact?.name}

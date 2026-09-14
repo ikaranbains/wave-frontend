@@ -42,7 +42,7 @@ export const Avatar = memo(function Avatar({
     <div
       style={{ width: size, height: size }}
       aria-label={name ? `${name}'s avatar` : 'Avatar placeholder'}
-      className={`relative flex flex-shrink-0 select-none items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-container font-bold text-white shadow-sm ${fallbackClassName} ${className}`}
+      className={`relative flex flex-shrink-0 select-none items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary-container font-semibold text-on-primary ${fallbackClassName} ${className}`}
     >
       <span style={{ fontSize: Math.max(10, Math.round(size * 0.38)) }}>
         {initials}

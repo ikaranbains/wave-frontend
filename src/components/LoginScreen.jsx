@@ -147,10 +147,10 @@ export const LoginScreen = ({ onLoginSuccess }) => {
   };
 
   const fieldClass = (hasError) =>
-    `w-full rounded-2xl border bg-surface-container-lowest py-3.5 pl-11 text-sm text-on-surface placeholder:text-outline/70 transition-all focus:outline-none focus:ring-4 ${
+    `w-full rounded-full bg-surface-container py-3 pl-11 text-[13px] text-on-surface placeholder-outline transition-colors duration-150 focus:outline-none ${
       hasError
-        ? 'border-red-400 focus:border-red-500 focus:ring-red-500/10'
-        : 'border-outline-variant/70 hover:border-outline/60 focus:border-primary focus:ring-primary/10'
+        ? 'ring-1 ring-red-400 focus:bg-surface-container-high'
+        : 'focus:bg-surface-container-high'
     }`;
 
   const submitLabel = loading
@@ -166,40 +166,31 @@ export const LoginScreen = ({ onLoginSuccess }) => {
     : 'Create my space';
 
   return (
-    <div className="flex min-h-dvh w-full select-none items-center justify-center bg-surface p-0 sm:p-6">
-      <div className="flex h-dvh w-full flex-col overflow-y-auto border-0 bg-surface-container-lowest shadow-2xl shadow-black/5 sm:h-auto sm:max-w-5xl sm:flex-row sm:overflow-hidden sm:rounded-[28px] sm:border sm:border-outline-variant/60 md:min-h-[620px]">
+    <div className="ambient flex min-h-dvh w-full select-none items-center justify-center p-0 sm:p-6">
+      <div className="card flex h-dvh w-full flex-col overflow-y-auto rounded-none border-0 sm:h-auto sm:max-w-5xl sm:flex-row sm:overflow-hidden sm:rounded-2xl sm:border md:min-h-[620px]">
         {/* Brand panel */}
-        <div className="auth-brand relative shrink-0 overflow-hidden bg-primary px-7 py-8 text-white sm:w-[44%] sm:px-10 sm:py-11 lg:px-12">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.28),transparent_55%)]"
-          />
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-white/10 blur-3xl"
-          />
-
+        <div className="auth-brand relative shrink-0 overflow-hidden bg-primary px-7 py-8 text-on-primary sm:w-[44%] sm:px-10 sm:py-11 lg:px-12">
           <div className="relative flex h-full flex-col">
             <div className="flex items-center gap-3">
               <Image
                 src="/wave-mark.png"
                 alt=""
-                width={44}
-                height={44}
+                width={40}
+                height={40}
                 priority
-                className="h-11 w-11 rounded-2xl bg-white object-contain shadow-lg shadow-black/10 ring-1 ring-white/40"
+                className="h-10 w-10 rounded-xl bg-on-primary/15 object-contain"
               />
-              <span className="font-display text-lg font-bold tracking-tight">
+              <span className="font-display text-lg font-semibold tracking-tight">
                 Wave
               </span>
             </div>
 
             <div className="mt-10 sm:mt-14">
-              <h1 className="font-display text-[1.75rem] font-extrabold leading-[1.1] tracking-[-0.02em] sm:text-[2.25rem]">
+              <h1 className="font-display text-[1.75rem] font-semibold leading-[1.1] tracking-tight sm:text-[2.25rem]">
                 Your people,
                 <br className="hidden sm:block" /> a tap away.
               </h1>
-              <p className="mt-3 max-w-sm text-sm leading-relaxed text-white/75">
+              <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-on-primary/75">
                 A quiet little place for the handful of people you actually want
                 to hear from. No feeds, no noise — just them.
               </p>
@@ -208,12 +199,12 @@ export const LoginScreen = ({ onLoginSuccess }) => {
             <ul className="mt-8 hidden space-y-5 sm:mt-auto sm:block sm:pt-10">
               {HIGHLIGHTS.map(({ icon: Icon, title, copy }) => (
                 <li key={title} className="flex items-start gap-3.5">
-                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/12 ring-1 ring-white/20">
-                    <Icon className="h-4.5 w-4.5" />
+                  <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-on-primary/15">
+                    <Icon className="h-4 w-4" strokeWidth={1.9} />
                   </span>
                   <span>
-                    <span className="block text-sm font-semibold">{title}</span>
-                    <span className="block text-xs leading-relaxed text-white/65">
+                    <span className="block text-[13px] font-semibold">{title}</span>
+                    <span className="block text-xs leading-relaxed text-on-primary/65">
                       {copy}
                     </span>
                   </span>
@@ -227,25 +218,25 @@ export const LoginScreen = ({ onLoginSuccess }) => {
         <div className="flex flex-1 flex-col justify-center px-6 py-8 sm:overflow-y-auto sm:px-10 sm:py-11 lg:px-14">
           <div className="mx-auto w-full max-w-sm">
             {!isReset && (
-            <div className="auth-mode-toggle grid grid-cols-2 gap-1 rounded-2xl bg-surface-container p-1">
+            <div className="auth-mode-toggle grid grid-cols-2 gap-1 rounded-full bg-surface-container p-1">
               <button
                 type="button"
                 onClick={() => switchMode('login')}
-                className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
+                className={`rounded-full px-4 py-2 text-[13px] font-semibold transition-colors duration-150 ${
                   isLogin
-                    ? 'bg-surface-container-lowest text-primary shadow-sm'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                    ? 'bg-surface-container-lowest text-primary'
+                    : 'text-outline hover:text-on-surface'
                 }`}
               >
-                Log in 
+                Log in
               </button>
               <button
                 type="button"
                 onClick={() => switchMode('signup')}
-                className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition-all ${
+                className={`rounded-full px-4 py-2 text-[13px] font-semibold transition-colors duration-150 ${
                   !isLogin
-                    ? 'bg-surface-container-lowest text-primary shadow-sm'
-                    : 'text-on-surface-variant hover:text-on-surface'
+                    ? 'bg-surface-container-lowest text-primary'
+                    : 'text-outline hover:text-on-surface'
                 }`}
               >
                 Create account
@@ -254,7 +245,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
             )}
 
             <div className={isReset ? '' : 'mt-7'}>
-              <h2 className="font-display text-2xl font-bold tracking-[-0.02em] text-on-surface sm:text-[1.75rem]">
+              <h2 className="font-display text-2xl font-semibold tracking-tight text-on-surface sm:text-[1.75rem]">
                 {isReset
                   ? 'Reset your password'
                   : isLogin
@@ -263,7 +254,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                   ? 'Make it yours'
                   : 'Nice to meet you'}
               </h2>
-              <p className="mt-1.5 text-sm text-on-surface-variant">
+              <p className="mt-1.5 text-[13px] text-on-surface-variant">
                 {isReset
                   ? 'Enter the backup code you were given, along with the email on your account.'
                   : isLogin
@@ -275,7 +266,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
             {notice && (
               <div
                 role="status"
-                className="mt-5 flex items-start gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 p-3.5 text-sm text-emerald-800"
+                className="mt-5 flex items-start gap-2.5 rounded-2xl bg-emerald-500/10 p-3.5 text-[13px] text-emerald-700 ring-1 ring-emerald-500/25"
               >
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{notice}</span>
@@ -285,7 +276,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
             {apiError && (
               <div
                 role="alert"
-                className="mt-5 flex items-start gap-2.5 rounded-2xl border border-red-200 bg-red-50 p-3.5 text-sm text-red-700"
+                className="mt-5 flex items-start gap-2.5 rounded-2xl bg-red-500/10 p-3.5 text-[13px] text-red-600 ring-1 ring-red-500/25"
               >
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>{apiError}</span>
@@ -459,7 +450,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
                       Profile photo <span className="font-normal text-outline">(optional)</span>
                     </label>
                     <input id="signup-photo" type="file" accept="image/jpeg,image/png" onChange={handlePhotoSelect} className="sr-only" />
-                    <label htmlFor="signup-photo" className="flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-outline-variant/70 bg-surface-container-lowest p-3 transition-colors hover:border-primary">
+                    <label htmlFor="signup-photo" className="flex cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-outline-variant bg-surface-container-low p-3 transition-colors duration-150 hover:border-primary">
                       {photoPreview ? (
                         <Image src={photoPreview} alt="Profile preview" width={52} height={52} unoptimized className="h-[52px] w-[52px] rounded-full object-cover" />
                       ) : (
@@ -483,7 +474,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
               <button
                 type="submit"
                 disabled={loading || isBlocked}
-                className="auth-submit group flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-sm font-semibold text-on-primary shadow-lg shadow-primary/20 transition-all hover:bg-primary-container active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+                className="auth-submit group flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-primary py-3.5 text-[13px] font-semibold text-on-primary transition-colors duration-150 hover:bg-primary-container active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {loading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -495,7 +486,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
               </button>
             </form>
 
-            <p className="mt-6 text-center text-sm text-on-surface-variant">
+            <p className="mt-6 text-center text-[13px] text-on-surface-variant">
               {isReset
                 ? 'Remembered it?'
                 : isLogin

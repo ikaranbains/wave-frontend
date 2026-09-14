@@ -205,12 +205,12 @@ export const SettingsView = memo(function SettingsView({
       {/* Section list. On mobile this is a full screen of its own and the content
           pane replaces it once a section is picked; from md up both are visible. */}
       <div
-        className={`scroll-touch w-full min-w-0 flex-col justify-between overflow-y-auto px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 md:flex md:w-64 md:flex-none md:border-r md:border-outline-variant/40 md:p-6 md:pb-6 md:pt-[calc(1.5rem+env(safe-area-inset-top))] ${
+        className={`scroll-touch w-full min-w-0 flex-col justify-between overflow-y-auto px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-6 md:flex md:w-64 md:flex-none md:border-r md:border-outline-variant md:p-6 md:pb-6 md:pt-[calc(1.5rem+env(safe-area-inset-top))] ${
           activeSection ? 'hidden' : 'settings-list-enter flex flex-1'
         }`}
       >
         <div>
-          <h1 className="mb-3 font-display text-xl font-bold tracking-tight text-on-surface md:mb-6">
+          <h1 className="mb-3 font-display text-xl font-semibold tracking-tight text-on-surface md:mb-6">
             Settings
           </h1>
           <nav className="space-y-1.5 md:space-y-1">
@@ -220,15 +220,18 @@ export const SettingsView = memo(function SettingsView({
                 type="button"
                 onClick={() => onSectionChange(key)}
                 aria-current={section === key ? 'true' : undefined}
-                className={`flex w-full items-center gap-3 rounded-xl border border-outline-variant/40 bg-white px-3.5 py-3.5 text-sm font-semibold transition-all active:scale-[0.99] md:border-0 md:bg-transparent md:px-3 md:py-2.5 md:text-xs md:active:scale-100 ${
+                className={`flex w-full items-center gap-3 rounded-xl border border-outline-variant bg-surface-container-lowest px-3.5 py-3.5 text-[13px] font-medium transition-colors duration-150 active:scale-95 md:border-0 md:bg-transparent md:px-3 md:py-2.5 md:active:scale-100 ${
                   section === key
-                    ? 'md:bg-primary md:text-white md:shadow-sm md:shadow-primary/25'
-                    : 'text-on-surface-variant hover:bg-surface-container-highest hover:text-on-surface'
+                    ? 'md:bg-primary md:text-on-primary'
+                    : 'text-on-surface-variant hover:bg-surface-container hover:text-on-surface'
                 }`}
               >
-                <Icon className="h-4 w-4 flex-shrink-0" />
+                <Icon className="h-[17px] w-[17px] flex-shrink-0" strokeWidth={1.9} />
                 <span className="min-w-0 flex-1 text-left">{label}</span>
-                <ChevronRight className="h-4 w-4 flex-shrink-0 text-outline md:hidden" />
+                <ChevronRight
+                  className="h-4 w-4 flex-shrink-0 text-outline md:hidden"
+                  strokeWidth={1.9}
+                />
               </button>
             ))}
           </nav>
@@ -236,11 +239,14 @@ export const SettingsView = memo(function SettingsView({
 
         <div className="mt-8 space-y-2 md:mt-6">
           {isUpdateAvailable ? (
-            <div className="flex w-full items-center gap-2 rounded-xl border border-primary/25 bg-primary/10 p-2.5 text-primary md:p-2">
-              <RefreshCw className={`h-4 w-4 flex-shrink-0 ${isUpdating ? 'animate-spin' : ''}`} />
+            <div className="flex w-full items-center gap-2 rounded-2xl bg-primary/12 p-2.5 text-primary md:p-2">
+              <RefreshCw
+                className={`h-[17px] w-[17px] flex-shrink-0 ${isUpdating ? 'animate-spin' : ''}`}
+                strokeWidth={1.9}
+              />
               <span className="min-w-0 flex-1 text-left">
-                <span className="block text-xs font-semibold">New version available</span>
-                <span className="block text-[10px] text-on-surface-variant">
+                <span className="block text-[13px] font-semibold">New version available</span>
+                <span className="block text-[11px] text-on-surface-variant">
                   {isUpdating ? 'Updating Wave…' : 'Install it now'}
                 </span>
               </span>
@@ -248,7 +254,7 @@ export const SettingsView = memo(function SettingsView({
                 type="button"
                 onClick={updateApp}
                 disabled={isUpdating}
-                className="flex-shrink-0 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-bold text-white transition-transform active:scale-95 disabled:opacity-60"
+                className="flex-shrink-0 rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold text-on-primary transition-colors duration-150 hover:bg-primary-container active:scale-95 disabled:opacity-60"
               >
                 {isUpdating ? 'Installing…' : 'Install'}
               </button>
@@ -258,25 +264,25 @@ export const SettingsView = memo(function SettingsView({
               type="button"
               onClick={installApp}
               disabled={isInstalled || !canInstall}
-              className="flex w-full items-center gap-2 rounded-xl border border-outline-variant/50 bg-white px-3 py-2.5 text-left text-on-surface-variant transition-all active:scale-[0.98] disabled:cursor-default disabled:opacity-65 md:border-0 md:bg-transparent md:active:scale-100"
+              className="flex w-full items-center gap-2 rounded-xl border border-outline-variant bg-surface-container-lowest px-3 py-2.5 text-left text-on-surface-variant transition-colors duration-150 active:scale-95 disabled:cursor-default disabled:opacity-65 md:border-0 md:bg-transparent md:active:scale-100"
             >
               {isInstalled ? (
-                <Check className="h-4 w-4 flex-shrink-0 text-emerald-600" />
+                <Check className="h-[17px] w-[17px] flex-shrink-0 text-emerald-600" strokeWidth={1.9} />
               ) : (
-                <Smartphone className="h-4 w-4 flex-shrink-0 text-primary" />
+                <Smartphone className="h-[17px] w-[17px] flex-shrink-0 text-primary" strokeWidth={1.9} />
               )}
               <span className="min-w-0 flex-1">
-                <span className="block text-xs font-semibold">
+                <span className="block text-[13px] font-medium text-on-surface">
                   {isInstalled ? 'Installed' : 'Install app'}
                 </span>
                 {!isInstalled && !canInstall && (
-                  <span className="block text-[10px] text-outline">
+                  <span className="block text-[11px] text-outline">
                     Install from your browser menu
                   </span>
                 )}
               </span>
               {!isInstalled && canInstall && (
-                <span className="rounded-lg bg-primary px-3 py-1.5 text-[11px] font-bold text-white">
+                <span className="rounded-full bg-primary px-3 py-1.5 text-[11px] font-semibold text-on-primary">
                   Install
                 </span>
               )}
@@ -286,9 +292,9 @@ export const SettingsView = memo(function SettingsView({
           {onLogout && (
             <button
               onClick={onLogout}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 py-3 text-sm font-semibold text-red-600 transition-all active:scale-[0.98] md:justify-start md:gap-3 md:border-0 md:bg-transparent md:px-3 md:py-2.5 md:text-xs md:hover:bg-red-50 md:active:scale-100"
+              className="flex w-full items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 py-3 text-[13px] font-semibold text-red-600 transition-colors duration-150 active:scale-95 md:justify-start md:gap-3 md:border-0 md:bg-transparent md:px-3 md:py-2.5 md:hover:bg-red-50 md:active:scale-100"
             >
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-[17px] w-[17px]" strokeWidth={1.9} />
               <span>Sign out</span>
             </button>
           )}
@@ -305,23 +311,23 @@ export const SettingsView = memo(function SettingsView({
           <button
             type="button"
             onClick={onSectionBack}
-            className="-ml-2 mb-4 inline-flex items-center gap-1 rounded-xl px-2 py-1.5 text-xs font-semibold text-on-surface-variant transition-colors hover:text-on-surface md:hidden"
+            className="-ml-2 mb-4 inline-flex items-center gap-1 rounded-xl px-2 py-1.5 text-[13px] font-medium text-outline transition-colors duration-150 hover:bg-surface-container hover:text-on-surface md:hidden"
           >
-            <ChevronLeft className="h-4 w-4" />
+            <ChevronLeft className="h-4 w-4" strokeWidth={1.9} />
             Settings
           </button>
         )}
 
         <div key={activeSection || 'default-profile'} className="settings-section-enter">
         {savedSuccess && (
-          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-600" />
+          <div className="mb-6 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-[13px] text-emerald-800">
+            <Check className="h-4 w-4 flex-shrink-0 text-emerald-600" strokeWidth={1.9} />
             <span>Your settings have been saved successfully!</span>
           </div>
         )}
         {saveError && (
-          <div role="alert" className="mb-6 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 p-4 text-xs text-red-700">
-            <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <div role="alert" className="mb-6 flex items-center gap-2 rounded-2xl border border-red-200 bg-red-50 p-4 text-[13px] text-red-700">
+            <AlertCircle className="h-4 w-4 flex-shrink-0" strokeWidth={1.9} />
             <span>{saveError}</span>
           </div>
         )}
@@ -330,11 +336,11 @@ export const SettingsView = memo(function SettingsView({
         {section === 'profile' && (
           <form onSubmit={handleSave} className="space-y-6">
             <div>
-              <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Profile Settings</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">Update how you appear to the people you talk to.</p>
+              <h2 className="font-display text-xl font-semibold tracking-tight text-on-surface">Profile Settings</h2>
+              <p className="mt-1 text-[13px] text-on-surface-variant">Update how you appear to the people you talk to.</p>
             </div>
 
-            <div className="flex flex-col items-center gap-4 rounded-2xl border border-outline-variant/40 bg-white p-4 text-center sm:flex-row sm:p-5 sm:text-left">
+            <div className="card flex flex-col items-center gap-4 rounded-2xl p-4 text-center sm:flex-row sm:p-5 sm:text-left">
               <Avatar
                 src={photoPreview || currentUser?.avatar}
                 name={currentUser?.name}
@@ -354,19 +360,19 @@ export const SettingsView = memo(function SettingsView({
                   type="button"
                   onClick={() => document.getElementById('profile-photo-input')?.click()}
                   disabled={isUploadingPhoto}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-surface-container-low px-3 py-1.5 text-xs font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-high disabled:opacity-50"
+                  className="inline-flex items-center gap-1.5 rounded-full bg-surface-container px-4 py-2 text-[13px] font-medium text-on-surface-variant transition-colors duration-150 hover:bg-surface-container-high active:scale-95 disabled:opacity-50"
                 >
-                  <Upload className="h-3.5 w-3.5" />
+                  <Upload className="h-4 w-4" strokeWidth={1.9} />
                   Change Photo
                 </button>
-                <p className="text-[11px] text-outline mt-1">JPG or PNG, max size 2MB.</p>
+                <p className="mt-1.5 text-[11px] text-outline">JPG or PNG, max size 2MB.</p>
                 {selectedPhoto && (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <button
                       type="button"
                       onClick={handlePhotoUpload}
                       disabled={isUploadingPhoto}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-[11px] font-semibold text-white transition-colors hover:bg-primary-container disabled:opacity-50"
+                      className="inline-flex items-center gap-1.5 rounded-full bg-primary px-4 py-2 text-[11px] font-semibold text-on-primary transition-colors duration-150 hover:bg-primary-container active:scale-95 disabled:opacity-50"
                     >
                       {isUploadingPhoto && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
                       {isUploadingPhoto ? `Uploading ${photoProgress}%` : 'Confirm photo'}
@@ -375,9 +381,9 @@ export const SettingsView = memo(function SettingsView({
                       type="button"
                       onClick={() => setSelectedPhoto(null)}
                       disabled={isUploadingPhoto}
-                      className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold text-outline transition-colors hover:bg-surface-container-high disabled:opacity-50"
+                      className="inline-flex items-center gap-1 rounded-full px-3 py-2 text-[11px] font-semibold text-outline transition-colors duration-150 hover:bg-surface-container hover:text-on-surface active:scale-95 disabled:opacity-50"
                     >
-                      <X className="h-3.5 w-3.5" />
+                      <X className="h-3.5 w-3.5" strokeWidth={1.9} />
                       Cancel
                     </button>
                   </div>
@@ -388,22 +394,22 @@ export const SettingsView = memo(function SettingsView({
 
             <div className="space-y-4">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">Display Name</label>
+                <label className="mb-1.5 block text-[13px] font-medium text-on-surface">Display Name</label>
                 <input
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface transition-all focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
+                  className="w-full rounded-full bg-surface-container px-4 py-2.5 text-[13px] text-on-surface placeholder-outline transition-colors duration-150 focus:bg-surface-container-high focus:outline-none"
                 />
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold text-on-surface-variant">Status Message</label>
+                <label className="mb-1.5 block text-[13px] font-medium text-on-surface">Status Message</label>
                 <input
                   type="text"
                   value={statusMessage}
                   onChange={(e) => setStatusMessage(e.target.value)}
-                  className="w-full rounded-2xl border border-outline-variant bg-white px-4 py-3 text-sm text-on-surface transition-all focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10"
+                  className="w-full rounded-full bg-surface-container px-4 py-2.5 text-[13px] text-on-surface placeholder-outline transition-colors duration-150 focus:bg-surface-container-high focus:outline-none"
                 />
               </div>
             </div>
@@ -411,7 +417,7 @@ export const SettingsView = memo(function SettingsView({
             <button
               type="submit"
               disabled={isSaving || !displayName.trim()}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm shadow-primary/25 transition-all active:scale-[0.98] disabled:opacity-50 hover:bg-primary-container sm:w-auto sm:py-2.5"
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-primary px-6 py-2.5 text-[13px] font-semibold text-on-primary transition-colors duration-150 hover:bg-primary-container active:scale-95 disabled:opacity-50 sm:w-auto"
             >
               {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
               Save Settings
@@ -423,12 +429,12 @@ export const SettingsView = memo(function SettingsView({
         {section === 'notifications' && (
           <form onSubmit={handleSave} className="space-y-6">
             <div>
-              <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Notification Preferences</h2>
-              <p className="text-xs text-outline">Choose how you receive alerts and incoming messages.</p>
+              <h2 className="font-display text-xl font-semibold tracking-tight text-on-surface">Notification Preferences</h2>
+              <p className="mt-1 text-[13px] text-on-surface-variant">Choose how you receive alerts and incoming messages.</p>
             </div>
 
             {/* Web push — per-device, handled by the service worker */}
-            <div className="rounded-2xl border border-outline-variant/40 bg-white p-4">
+            <div className="card rounded-2xl p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div className="flex items-start gap-3">
                   <span
@@ -439,16 +445,16 @@ export const SettingsView = memo(function SettingsView({
                     }`}
                   >
                     {push.isSubscribed ? (
-                      <BellRing className="h-4 w-4" />
+                      <BellRing className="h-[17px] w-[17px]" strokeWidth={1.9} />
                     ) : (
-                      <BellOff className="h-4 w-4" />
+                      <BellOff className="h-[17px] w-[17px]" strokeWidth={1.9} />
                     )}
                   </span>
                   <div>
-                    <h3 className="text-xs font-semibold text-on-surface">
+                    <h3 className="text-[13px] font-medium text-on-surface">
                       Push Notifications On This Device
                     </h3>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-outline">
+                    <p className="mt-0.5 text-xs leading-relaxed text-outline">
                       {push.isSubscribed
                         ? 'This device gets a notification when a message arrives while Wave is closed.'
                         : 'Allow notifications so messages reach you when the app is closed or in the background.'}
@@ -465,10 +471,10 @@ export const SettingsView = memo(function SettingsView({
                     !push.isServerConfigured ||
                     push.permission === 'denied'
                   }
-                  className={`inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all active:scale-95 disabled:opacity-50 ${
+                  className={`inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors duration-150 active:scale-95 disabled:opacity-50 ${
                     push.isSubscribed
-                      ? 'border border-outline-variant bg-white text-on-surface-variant'
-                      : 'bg-primary text-white'
+                      ? 'bg-surface-container text-on-surface-variant hover:bg-surface-container-high'
+                      : 'bg-primary text-on-primary hover:bg-primary-container'
                   }`}
                 >
                   {push.isBusy && <LoaderCircle className="h-3.5 w-3.5 animate-spin" />}
@@ -477,26 +483,26 @@ export const SettingsView = memo(function SettingsView({
               </div>
 
               {!push.isAppConfigured && (
-                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] text-amber-800">
+                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
                   This build of Wave has no Firebase configuration, so push cannot be
                   enabled. The NEXT_PUBLIC_FIREBASE_* variables must be set where the app
                   is built, not just where it runs.
                 </p>
               )}
               {push.isAppConfigured && !push.isSupported && (
-                <p className="mt-3 rounded-xl bg-surface-container-low p-3 text-[11px] text-outline">
+                <p className="mt-3 rounded-xl bg-surface-container p-3 text-xs text-outline">
                   This browser cannot receive web push. On iPhone or iPad, install Wave to
                   the Home Screen first (iOS 16.4 or newer).
                 </p>
               )}
               {push.isSupported && !push.isServerConfigured && (
-                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-[11px] text-amber-800">
+                <p className="mt-3 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
                   Firebase Cloud Messaging is not configured on the server, so push
                   delivery is disabled.
                 </p>
               )}
               {push.permission === 'denied' && (
-                <p className="mt-3 rounded-xl bg-red-50 p-3 text-[11px] text-red-700">
+                <p className="mt-3 rounded-xl bg-red-50 p-3 text-xs text-red-700">
                   Notifications are blocked for this site. Re-enable them in your browser
                   settings, then turn them on here.
                 </p>
@@ -507,19 +513,19 @@ export const SettingsView = memo(function SettingsView({
                 </p>
               )}
               {!isInstalled && (
-                <p className="mt-3 flex items-start gap-2 text-[11px] text-outline">
-                  <Smartphone className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
+                <p className="mt-3 flex items-start gap-2 text-xs text-outline">
+                  <Smartphone className="mt-0.5 h-4 w-4 flex-shrink-0" strokeWidth={1.9} />
                   Installing Wave to your home screen makes notifications and offline mode
                   work like a native app.
                 </p>
               )}
             </div>
 
-            <div className="bg-white rounded-2xl border border-outline-variant/40 divide-y divide-surface-container">
-              <div className="p-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-semibold text-on-surface">Message Alerts</h3>
-                  <p className="text-[11px] text-outline">
+            <div className="card divide-y divide-outline-variant rounded-2xl">
+              <div className="flex items-center justify-between gap-4 px-4 py-4">
+                <div className="min-w-0">
+                  <h3 className="text-[13px] font-medium text-on-surface">Message Alerts</h3>
+                  <p className="mt-0.5 text-xs text-outline">
                     Account-wide switch for new-message notifications on every device.
                   </p>
                 </div>
@@ -527,27 +533,27 @@ export const SettingsView = memo(function SettingsView({
                   type="checkbox"
                   checked={notificationsEnabled}
                   onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                  className="w-4 h-4 accent-primary cursor-pointer"
+                  className="h-4 w-4 flex-shrink-0 cursor-pointer accent-primary"
                 />
               </div>
 
-              <div className="p-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-xs font-semibold text-on-surface">Sound Alerts</h3>
-                  <p className="text-[11px] text-outline">Play audio chimes for incoming calls & texts.</p>
+              <div className="flex items-center justify-between gap-4 px-4 py-4">
+                <div className="min-w-0">
+                  <h3 className="text-[13px] font-medium text-on-surface">Sound Alerts</h3>
+                  <p className="mt-0.5 text-xs text-outline">Play audio chimes for incoming calls & texts.</p>
                 </div>
                 <input
                   type="checkbox"
                   checked={soundEnabled}
                   onChange={(e) => setSoundEnabled(e.target.checked)}
-                  className="w-4 h-4 accent-primary cursor-pointer"
+                  className="h-4 w-4 flex-shrink-0 cursor-pointer accent-primary"
                 />
               </div>
             </div>
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-[13px] font-semibold text-on-primary transition-colors duration-150 hover:bg-primary-container active:scale-95 disabled:opacity-50"
             >
               {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
               Save Preferences
@@ -559,31 +565,31 @@ export const SettingsView = memo(function SettingsView({
         {section === 'privacy' && (
           <form onSubmit={handleSave} className="space-y-6">
             <div>
-              <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Privacy & Security</h2>
-              <p className="text-xs text-outline">Manage your sign-in and the devices you are signed in on.</p>
+              <h2 className="font-display text-xl font-semibold tracking-tight text-on-surface">Privacy & Security</h2>
+              <p className="mt-1 text-[13px] text-on-surface-variant">Manage your sign-in and the devices you are signed in on.</p>
             </div>
 
-            <div className="bg-white rounded-2xl border border-outline-variant/40 p-4 space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Lock className="w-5 h-5 text-primary" />
-                  <div>
-                    <h3 className="text-xs font-semibold text-on-surface">Online Presence</h3>
-                    <p className="text-[11px] text-outline">Allow contacts to see when you are online.</p>
+            <div className="card divide-y divide-outline-variant rounded-2xl">
+              <div className="flex items-center justify-between gap-4 px-4 py-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <Lock className="h-[18px] w-[18px] flex-shrink-0 text-primary" strokeWidth={1.9} />
+                  <div className="min-w-0">
+                    <h3 className="text-[13px] font-medium text-on-surface">Online Presence</h3>
+                    <p className="mt-0.5 text-xs text-outline">Allow contacts to see when you are online.</p>
                   </div>
                 </div>
                 <input
                   type="checkbox"
                   checked={showOnlineStatus}
                   onChange={(e) => setShowOnlineStatus(e.target.checked)}
-                  className="w-4 h-4 accent-primary cursor-pointer"
+                  className="h-4 w-4 flex-shrink-0 cursor-pointer accent-primary"
                 />
               </div>
             </div>
             <button
               type="submit"
               disabled={isSaving}
-              className="inline-flex items-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs font-semibold text-white disabled:opacity-50"
+              className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-[13px] font-semibold text-on-primary transition-colors duration-150 hover:bg-primary-container active:scale-95 disabled:opacity-50"
             >
               {isSaving && <LoaderCircle className="h-4 w-4 animate-spin" />}
               Save Privacy
@@ -595,14 +601,14 @@ export const SettingsView = memo(function SettingsView({
         {section === 'appearance' && (
           <div className="space-y-6">
             <div>
-              <h2 className="font-display text-xl font-bold tracking-tight text-on-surface">Appearance & Design</h2>
-              <p className="mt-1 text-sm text-on-surface-variant">How Wave looks on this device.</p>
+              <h2 className="font-display text-xl font-semibold tracking-tight text-on-surface">Appearance & Design</h2>
+              <p className="mt-1 text-[13px] text-on-surface-variant">How Wave looks on this device.</p>
             </div>
 
-            <div className="space-y-4 rounded-2xl border border-outline-variant/40 bg-white p-4 sm:p-6">
+            <div className="card space-y-4 rounded-2xl p-4 sm:p-6">
               <div>
-                <h3 className="text-xs font-semibold text-on-surface">Appearance</h3>
-                <p className="mt-1 text-[11px] text-outline">Choose how Wave looks on this device.</p>
+                <h3 className="text-[13px] font-medium text-on-surface">Appearance</h3>
+                <p className="mt-0.5 text-xs text-outline">Choose how Wave looks on this device.</p>
               </div>
               <div className="grid grid-cols-3 gap-2 rounded-2xl bg-surface-container p-1">
                 {[
@@ -615,13 +621,13 @@ export const SettingsView = memo(function SettingsView({
                     type="button"
                     onClick={() => onThemeChange?.(value)}
                     aria-pressed={theme === value}
-                    className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-[11px] font-semibold transition-all ${
+                    className={`flex flex-col items-center gap-1 rounded-xl px-2 py-2.5 text-[11px] font-semibold transition-colors duration-150 ${
                       theme === value
-                        ? 'bg-surface-container-lowest text-primary shadow-sm'
-                        : 'text-on-surface-variant hover:text-on-surface'
+                        ? 'bg-primary/12 text-primary'
+                        : 'text-outline hover:bg-surface-container-high hover:text-on-surface'
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-[17px] w-[17px]" strokeWidth={1.9} />
                     {label}
                   </button>
                 ))}

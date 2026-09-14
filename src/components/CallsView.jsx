@@ -85,13 +85,13 @@ export const CallsView = memo(function CallsView({
       <div className="mx-auto max-w-3xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight text-on-surface">
+            <h1 className="font-display text-xl font-semibold tracking-tight text-on-surface">
               Calls
             </h1>
             <p className="mt-1 text-xs text-outline">Audio and video calls from all chats</p>
           </div>
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-            <PhoneCall className="h-5 w-5" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/12 text-primary">
+            <PhoneCall className="h-[18px] w-[18px]" strokeWidth={1.9} />
           </span>
         </div>
 
@@ -102,13 +102,13 @@ export const CallsView = memo(function CallsView({
         ) : calls.length === 0 ? (
           <div className="flex min-h-64 flex-col items-center justify-center text-center">
             <span className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-surface-container text-outline">
-              <Phone className="h-6 w-6" />
+              <Phone className="h-[18px] w-[18px]" strokeWidth={1.9} />
             </span>
-            <p className="text-sm font-semibold text-on-surface">No calls yet</p>
+            <p className="text-[13px] font-semibold text-on-surface">No calls yet</p>
             <p className="mt-1 text-xs text-outline">Your audio and video calls will appear here.</p>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-3xl border border-outline-variant/40 bg-surface-container-lowest shadow-sm">
+          <div className="card overflow-hidden rounded-2xl">
             {calls.map((call) => {
               const contact = call.conversation.contact;
               const { label, detail, missed } = describeCallEvent(
@@ -121,7 +121,7 @@ export const CallsView = memo(function CallsView({
               return (
                 <div
                   key={`${call.conversation.id}-${call.id}`}
-                  className="flex items-center gap-3 border-b border-outline-variant/30 px-4 py-3.5 last:border-b-0 sm:px-5"
+                  className="flex items-center gap-3 border-b border-outline-variant px-4 py-3.5 last:border-b-0 sm:px-5"
                 >
                   {isRealAvatar(contact?.avatar) ? (
                     <Image
@@ -132,13 +132,13 @@ export const CallsView = memo(function CallsView({
                       className="h-12 w-12 flex-shrink-0 rounded-full object-cover"
                     />
                   ) : (
-                    <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-secondary-container text-sm font-bold text-primary">
+                    <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-full bg-secondary-container text-[13px] font-semibold text-on-secondary-container">
                       {getInitials(contact?.name)}
                     </span>
                   )}
 
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-on-surface">
+                    <p className="truncate text-[13px] font-semibold text-on-surface">
                       {contact?.name || 'Unknown contact'}
                     </p>
                     <div
@@ -146,7 +146,7 @@ export const CallsView = memo(function CallsView({
                         missed ? 'text-red-600' : 'text-outline'
                       }`}
                     >
-                      <DirectionIcon className="h-3.5 w-3.5 flex-shrink-0" />
+                      <DirectionIcon className="h-4 w-4 flex-shrink-0" strokeWidth={1.9} />
                       <span className="truncate">{label}</span>
                       {detail && <span className="flex-shrink-0">· {detail}</span>}
                     </div>
@@ -163,11 +163,11 @@ export const CallsView = memo(function CallsView({
                   <button
                     type="button"
                     onClick={() => onStartCall(call.callEvent.type, call.conversation)}
-                    className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary/10 active:bg-primary/15"
+                    className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl text-outline transition-colors duration-150 hover:bg-surface-container hover:text-on-surface active:scale-95"
                     title={`Start ${call.callEvent.type} call with ${contact?.name || 'contact'}`}
                     aria-label={`Start ${call.callEvent.type} call with ${contact?.name || 'contact'}`}
                   >
-                    <TypeIcon className="h-5 w-5" />
+                    <TypeIcon className="h-[18px] w-[18px]" strokeWidth={1.9} />
                   </button>
                 </div>
               );

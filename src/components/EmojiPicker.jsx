@@ -72,10 +72,10 @@ export function EmojiPicker({ onSelect }) {
     <div
       role="dialog"
       aria-label="Choose an emoji"
-      className="fixed bottom-[72px] left-3 right-3 z-50 mx-auto max-w-[352px] overflow-hidden rounded-2xl border border-outline-variant/60 bg-white shadow-2xl sm:absolute sm:bottom-12 sm:left-auto sm:right-0 sm:w-[352px] sm:max-w-none"
+      className="card fixed bottom-[72px] left-3 right-3 z-50 mx-auto max-w-[352px] overflow-hidden rounded-2xl sm:absolute sm:bottom-12 sm:left-auto sm:right-0 sm:w-[352px] sm:max-w-none"
     >
       {loadError ? (
-        <p role="alert" className="px-5 py-8 text-center text-xs text-red-600">
+        <p role="alert" className="px-5 py-8 text-center text-[13px] text-red-600">
           {loadError}
         </p>
       ) : (

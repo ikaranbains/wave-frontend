@@ -7,38 +7,41 @@ export const HelpModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex select-none items-center justify-center bg-black/50 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-      <div className="scroll-touch max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-2xl border border-outline-variant bg-white p-6 shadow-xl">
-        <div className="flex items-center justify-between mb-4 border-b border-surface-container pb-3">
+    <div className="fixed inset-0 z-50 flex select-none items-center justify-center bg-black/60 p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+      <div className="card scroll-touch max-h-[85dvh] w-full max-w-md overflow-y-auto rounded-2xl p-6">
+        <div className="mb-4 flex items-center justify-between border-b border-outline-variant pb-3">
           <div className="flex items-center gap-2">
-            <HelpCircle className="w-5 h-5 text-primary" />
-            <h3 className="font-semibold text-base text-on-surface">Help & Keyboard Shortcuts</h3>
+            <HelpCircle className="h-[18px] w-[18px] text-primary" strokeWidth={1.9} />
+            <h3 className="font-display text-lg font-semibold tracking-tight text-on-surface">Help & Keyboard Shortcuts</h3>
           </div>
-          <button onClick={onClose} className="text-outline hover:text-on-surface">
-            <X className="w-5 h-5" />
+          <button
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-xl text-outline transition-colors duration-150 hover:bg-surface-container hover:text-on-surface active:scale-95"
+          >
+            <X className="h-[18px] w-[18px]" strokeWidth={1.9} />
           </button>
         </div>
 
-        <div className="space-y-3 text-xs text-on-surface-variant">
-          <div className="flex justify-between items-center py-1.5 border-b border-surface-container/60">
+        <div className="space-y-3 text-[13px] text-on-surface-variant">
+          <div className="flex items-center justify-between border-b border-outline-variant py-1.5">
             <span>Send Message</span>
-            <kbd className="px-2 py-0.5 bg-surface-container-low border border-outline-variant rounded font-mono text-[10px]">Enter</kbd>
+            <kbd className="rounded-full bg-surface-container px-2.5 py-0.5 font-mono text-[11px] text-on-surface-variant">Enter</kbd>
           </div>
-          <div className="flex justify-between items-center py-1.5 border-b border-surface-container/60">
+          <div className="flex items-center justify-between border-b border-outline-variant py-1.5">
             <span>Global Search</span>
-            <kbd className="px-2 py-0.5 bg-surface-container-low border border-outline-variant rounded font-mono text-[10px]">Ctrl + K / Cmd + K</kbd>
+            <kbd className="rounded-full bg-surface-container px-2.5 py-0.5 font-mono text-[11px] text-on-surface-variant">Ctrl + K / Cmd + K</kbd>
           </div>
-          <div className="flex justify-between items-center py-1.5 border-b border-surface-container/60">
+          <div className="flex items-center justify-between border-b border-outline-variant py-1.5">
             <span>Switch to Messages</span>
-            <kbd className="px-2 py-0.5 bg-surface-container-low border border-outline-variant rounded font-mono text-[10px]">Alt + 1</kbd>
+            <kbd className="rounded-full bg-surface-container px-2.5 py-0.5 font-mono text-[11px] text-on-surface-variant">Alt + 1</kbd>
           </div>
-          <div className="flex justify-between items-center py-1.5 border-b border-surface-container/60">
+          <div className="flex items-center justify-between border-b border-outline-variant py-1.5">
             <span>Switch to Contacts</span>
-            <kbd className="px-2 py-0.5 bg-surface-container-low border border-outline-variant rounded font-mono text-[10px]">Alt + 2</kbd>
+            <kbd className="rounded-full bg-surface-container px-2.5 py-0.5 font-mono text-[11px] text-on-surface-variant">Alt + 2</kbd>
           </div>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-surface-container text-center">
+        <div className="mt-6 border-t border-outline-variant pt-4 text-center">
           <p className="text-[11px] text-outline">Wave v1.0.0 — Your people, a tap away.</p>
         </div>
       </div>

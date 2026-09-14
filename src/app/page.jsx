@@ -359,7 +359,7 @@ export default function Home() {
         <button
           type="button"
           onClick={() => calls.setCallNotice('')}
-          className="fixed bottom-6 left-1/2 z-[120] -translate-x-1/2 rounded-full bg-slate-900 px-5 py-2.5 text-xs font-medium text-white shadow-xl"
+          className="fixed bottom-6 left-1/2 z-[120] -translate-x-1/2 rounded-full bg-stone-900 px-5 py-2.5 text-xs font-medium text-white shadow-xl"
         >
           {calls.callNotice}
         </button>
