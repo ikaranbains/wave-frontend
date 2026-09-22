@@ -67,7 +67,7 @@ export const viewport = {
   // Matches --surface in globals.css, so the status bar blends into the backdrop
   // the cards sit on rather than banding against it.
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#efedea" },
+    { media: "(prefers-color-scheme: light)", color: "#eae7e2" },
     { media: "(prefers-color-scheme: dark)", color: "#131211" },
   ],
 };

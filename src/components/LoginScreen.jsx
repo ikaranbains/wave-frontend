@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Image from 'next/image';
+import { WaveMark } from './WaveMark';
 import { useForm } from 'react-hook-form';
 import {
   ArrowRight,
@@ -169,28 +170,23 @@ export const LoginScreen = ({ onLoginSuccess }) => {
     <div className="ambient flex min-h-dvh w-full select-none items-center justify-center p-0 sm:p-6">
       <div className="card flex h-dvh w-full flex-col overflow-y-auto rounded-none border-0 sm:h-auto sm:max-w-5xl sm:flex-row sm:overflow-hidden sm:rounded-2xl sm:border md:min-h-[620px]">
         {/* Brand panel */}
-        <div className="auth-brand relative shrink-0 overflow-hidden bg-primary px-7 py-8 text-on-primary sm:w-[44%] sm:px-10 sm:py-11 lg:px-12">
+        <div className="auth-brand relative shrink-0 overflow-hidden bg-primary px-6 py-6 text-on-primary sm:w-[44%] sm:px-10 sm:py-11 lg:px-12">
           <div className="relative flex h-full flex-col">
             <div className="flex items-center gap-3">
-              <Image
-                src="/wave-mark.png"
-                alt=""
-                width={40}
-                height={40}
-                priority
-                className="h-10 w-10 rounded-xl bg-on-primary/15 object-contain"
-              />
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-on-primary/15 text-on-primary">
+                <WaveMark className="h-6 w-6" />
+              </span>
               <span className="font-display text-lg font-semibold tracking-tight">
                 Wave
               </span>
             </div>
 
-            <div className="mt-10 sm:mt-14">
-              <h1 className="font-display text-[1.75rem] font-semibold leading-[1.1] tracking-tight sm:text-[2.25rem]">
+            <div className="mt-6 sm:mt-14">
+              <h1 className="font-display text-[1.5rem] font-semibold leading-[1.15] tracking-tight sm:text-[2.25rem]">
                 Your people,
                 <br className="hidden sm:block" /> a tap away.
               </h1>
-              <p className="mt-3 max-w-sm text-[13px] leading-relaxed text-on-primary/75">
+              <p className="mt-2 hidden max-w-sm text-[13px] leading-relaxed text-on-primary/75 sm:mt-3 sm:block">
                 A quiet little place for the handful of people you actually want
                 to hear from. No feeds, no noise — just them.
               </p>
@@ -215,7 +211,7 @@ export const LoginScreen = ({ onLoginSuccess }) => {
         </div>
 
         {/* Form panel */}
-        <div className="flex flex-1 flex-col justify-center px-6 py-8 sm:overflow-y-auto sm:px-10 sm:py-11 lg:px-14">
+        <div className="flex flex-1 flex-col px-6 py-7 sm:justify-center sm:overflow-y-auto sm:px-10 sm:py-11 lg:px-14">
           <div className="mx-auto w-full max-w-sm">
             {!isReset && (
             <div className="auth-mode-toggle grid grid-cols-2 gap-1 rounded-full bg-surface-container p-1">

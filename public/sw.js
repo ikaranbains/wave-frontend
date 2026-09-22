@@ -1,6 +1,11 @@
 /* Wave service worker — app shell caching, offline outbox flush, FCM push. */
 
-const SW_VERSION = 'v12';
+const SW_VERSION = 'v13';
+// Development registers this worker as `/sw.js?mode=push-only`: push and
+// notification handling stay live so notifications can be tested, while every
+// cache path is skipped. Dev chunks are re-hashed on each edit, so a cached copy
+// of `/_next/static` would be served against freshly compiled HTML.
+const IS_PUSH_ONLY = new URL(self.location.href).searchParams.get('mode') === 'push-only';
 const SHELL_CACHE = `pingme-shell-${SW_VERSION}`;
 const ASSET_CACHE = `pingme-assets-${SW_VERSION}`;
 const OFFLINE_URL = '/offline';
@@ -181,7 +186,7 @@ async function precacheAppShell() {
 }
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(precacheAppShell());
+  event.waitUntil(IS_PUSH_ONLY ? self.skipWaiting() : precacheAppShell());
 });
 
 self.addEventListener('activate', (event) => {
@@ -193,7 +198,11 @@ self.addEventListener('activate', (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((key) => key !== SHELL_CACHE && key !== ASSET_CACHE)
+          .filter((key) =>
+            IS_PUSH_ONLY
+              ? key.startsWith('pingme-')
+              : key !== SHELL_CACHE && key !== ASSET_CACHE
+          )
           .map((key) => caches.delete(key))
       );
       await self.clients.claim();
@@ -280,6 +289,8 @@ async function handleStaticAsset(request, immutable) {
 }
 
 self.addEventListener('fetch', (event) => {
+  if (IS_PUSH_ONLY) return;
+
   const { request } = event;
   if (request.method !== 'GET') return;
 
@@ -374,6 +385,8 @@ self.addEventListener('push', (event) => {
 
       await self.registration.showNotification(display.title, {
         body: display.body,
+        icon: '/wave-192.png',
+        badge: '/wave-badge.png',
         tag: push.tag,
         renotify: true,
         // A ringing call should stay up until it is answered or it times out.

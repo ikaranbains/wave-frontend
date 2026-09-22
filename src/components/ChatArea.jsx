@@ -15,7 +15,6 @@ import {
   ArrowLeft,
   Phone,
   Video,
-  Info,
   Send,
   Smile,
   Check,
@@ -36,6 +35,8 @@ import {
   Trash2,
   Ban,
   ImageOff,
+  Mail,
+  Images,
 } from 'lucide-react';
 import { Avatar } from './Avatar';
 import {
@@ -125,6 +126,10 @@ const CallLogEntry = memo(function CallLogEntry({ message }) {
   );
 });
 
+// Roughly the tallest the options menu gets (four rows plus padding). Used to
+// decide whether it still fits above the trigger before it is rendered.
+const MESSAGE_MENU_HEIGHT = 200;
+
 const MessageItem = memo(function MessageItem({
   message: msg,
   isMenuOpen,
@@ -138,6 +143,9 @@ const MessageItem = memo(function MessageItem({
   onCloseMenu,
 }) {
   const microPreview = getCloudinaryMicroPreview(msg.attachment?.url);
+  // Messages near the top of the thread have no room for an upward menu, and it
+  // ended up clipped by the scroll container.
+  const [dropUp, setDropUp] = useState(true);
 
   return (
     <div
@@ -341,9 +349,16 @@ const MessageItem = memo(function MessageItem({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              const { top, bottom } = event.currentTarget.getBoundingClientRect();
+              const spaceBelow = window.innerHeight - bottom;
+              setDropUp(top > MESSAGE_MENU_HEIGHT || top > spaceBelow);
               onToggleMenu(msg.id);
             }}
-            className="p-1.5 rounded-full text-outline opacity-70 transition-all hover:text-on-surface hover:bg-surface-container-high md:opacity-0 md:group-hover/msg:opacity-100 cursor-pointer"
+            data-message-menu-trigger=""
+            aria-expanded={isMenuOpen}
+            className={`p-1.5 rounded-full text-outline opacity-70 transition-all hover:text-on-surface hover:bg-surface-container-high cursor-pointer md:group-hover/msg:opacity-100 ${
+              isMenuOpen ? 'text-on-surface md:opacity-100' : 'md:opacity-0'
+            }`}
             title="Message options"
             aria-label="Message options"
           >
@@ -353,9 +368,9 @@ const MessageItem = memo(function MessageItem({
           {isMenuOpen && (
             <div
               ref={menuRef}
-              className={`card absolute z-50 bottom-full mb-1 w-44 rounded-2xl p-1.5 ${
-                msg.isSentByMe ? 'right-0' : 'left-0'
-              }`}
+              className={`card absolute z-50 w-44 rounded-2xl p-1.5 ${
+                dropUp ? 'bottom-full mb-1' : 'top-full mt-1'
+              } ${msg.isSentByMe ? 'right-0' : 'left-0'}`}
             >
               <button
                 type="button"
@@ -394,9 +409,9 @@ const MessageItem = memo(function MessageItem({
               <button
                 type="button"
                 onClick={() => onDelete(msg)}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-red-600 rounded-xl hover:bg-red-50 transition-colors cursor-pointer"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-error rounded-xl hover:bg-error/10 transition-colors cursor-pointer"
               >
-                <Trash2 className="w-4 h-4 text-red-500" />
+                <Trash2 className="w-4 h-4 text-error" />
                 <span>Delete message</span>
               </button>
             </div>
@@ -465,7 +480,7 @@ const SharedMediaItem = memo(function SharedMediaItem({ attachment, onPreview })
 
   if (hasError) {
     return (
-      <div className="w-full h-16 rounded-md bg-black/10 flex flex-col items-center justify-center text-outline p-1 text-center">
+      <div className="flex aspect-square w-full flex-col items-center justify-center rounded-xl bg-surface-container p-1 text-center text-outline">
         <ImageOff className="w-4 h-4 opacity-60 mb-0.5" />
         <span className="text-[9px] truncate w-full opacity-70">Unavailable</span>
       </div>
@@ -476,11 +491,11 @@ const SharedMediaItem = memo(function SharedMediaItem({ attachment, onPreview })
     <Image
       src={attachment.url}
       alt={attachment.name || 'Shared image'}
-      width={80}
-      height={64}
+      width={120}
+      height={120}
       unoptimized
       onError={() => setHasError(true)}
-      className="w-full h-16 object-cover rounded-md cursor-pointer hover:opacity-80"
+      className="aspect-square w-full cursor-pointer rounded-xl object-cover transition-opacity duration-150 hover:opacity-80"
       onClick={onPreview}
     />
   );
@@ -621,9 +636,12 @@ export const ChatArea = memo(function ChatArea({
       ) {
         setIsAttachmentMenuOpen(false);
       }
+      // The trigger lives outside the menu element, so without this its own click
+      // would reopen the menu this handler just closed.
       if (
         messageMenuRef.current &&
-        !messageMenuRef.current.contains(event.target)
+        !messageMenuRef.current.contains(event.target) &&
+        !event.target.closest?.('[data-message-menu-trigger]')
       ) {
         setActiveMenuMessageId(null);
       }
@@ -860,30 +878,41 @@ export const ChatArea = memo(function ChatArea({
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
-            <div className="relative flex-shrink-0">
-              <Avatar
-                src={conversation.contact?.avatar}
-                name={conversation.contact?.name}
-                size={40}
-              />
-              {conversation.isOnline && (
-                <div className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-surface-container-lowest bg-emerald-500" />
-              )}
-            </div>
-            <div className="min-w-0">
-              <h2 className="truncate text-sm font-semibold text-on-surface">
-                {conversation.contact?.name}
-              </h2>
-              {conversation.isOnline ? (
-                <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-500">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Online
+            <button
+              type="button"
+              onClick={() => setShowInfoDrawer(!showInfoDrawer)}
+              aria-expanded={showInfoDrawer}
+              title="Contact details"
+              aria-label={`Open details for ${conversation.contact?.name || 'contact'}`}
+              className="-mx-1 flex min-w-0 items-center gap-2 rounded-2xl px-1 py-1 text-left transition-colors duration-150 hover:bg-surface-container-high active:scale-[0.98] sm:gap-3"
+            >
+              <span className="flex-shrink-0">
+                <Avatar
+                  src={conversation.contact?.avatar}
+                  name={conversation.contact?.name}
+                  size={40}
+                />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate text-sm font-semibold text-on-surface">
+                  {conversation.contact?.name}
                 </span>
-              ) : (
-                <span className="text-[11px] text-outline">
-                  {formatLastSeen(conversation.contact?.lastSeen)}
+                {/* Settles in just after the thread opens, lifting the name into place. */}
+                <span className="chat-status-reveal">
+                  <span
+                    className={`block truncate text-[11px] ${
+                      conversation.isOnline
+                        ? 'font-medium text-emerald-500'
+                        : 'text-outline'
+                    }`}
+                  >
+                    {conversation.isOnline
+                      ? 'Online'
+                      : formatLastSeen(conversation.contact?.lastSeen)}
+                  </span>
                 </span>
-              )}
-            </div>
+              </span>
+            </button>
           </div>
 
           <div className="flex items-center gap-0.5">
@@ -902,17 +931,6 @@ export const ChatArea = memo(function ChatArea({
               aria-label={`Video call ${conversation.contact?.name}`}
             >
               <Video className="h-[18px] w-[18px]" strokeWidth={1.75} />
-            </button>
-            <button
-              onClick={() => setShowInfoDrawer(!showInfoDrawer)}
-              className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors duration-150 active:scale-95 ${
-                showInfoDrawer
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface'
-              }`}
-              title="Toggle Details Drawer"
-            >
-              <Info className="h-[18px] w-[18px]" strokeWidth={1.75} />
             </button>
           </div>
         </header>
@@ -1265,51 +1283,119 @@ export const ChatArea = memo(function ChatArea({
         </div>
       </div>
 
-      {/* Optional Info Drawer */}
-      {showInfoDrawer && (
-        <aside className="scroll-touch fixed inset-0 z-40 flex w-full flex-col gap-6 overflow-y-auto bg-surface px-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pt-[calc(2.5rem+env(safe-area-inset-top))] animate-in slide-in-from-right md:static md:inset-auto md:w-72 md:flex-shrink-0 md:border-l md:pb-6 md:pt-6 border-outline-variant/40">
-          <div className="flex justify-between items-center">
-            <h3 className="text-xs font-semibold text-on-surface uppercase tracking-wider">
-              Contact Details
-            </h3>
+      {/* Optional Info Drawer — kept mounted so it can animate shut as well as open. */}
+      {conversation && (
+        <aside
+          data-open={showInfoDrawer}
+          aria-hidden={!showInfoDrawer}
+          inert={!showInfoDrawer}
+          className="info-drawer scroll-touch fixed inset-0 z-40 flex w-full flex-col overflow-y-auto bg-surface pb-[calc(1.5rem+env(safe-area-inset-bottom))] md:static md:inset-auto md:w-80 md:flex-shrink-0 md:border-l md:border-outline-variant/40 md:pb-6">
+          {/* Warm banner the avatar sits over, so the panel opens on colour rather than a blank sheet. */}
+          <div className="relative">
+            <div className="h-28 bg-gradient-to-br from-primary/85 via-primary to-primary-container pt-[env(safe-area-inset-top)] md:h-24" />
             <button
+              type="button"
               onClick={() => setShowInfoDrawer(false)}
-              className="text-outline hover:text-on-surface"
+              aria-label="Back to conversation"
+              title="Back to conversation"
+              className="absolute left-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/15 text-white backdrop-blur-sm transition-colors hover:bg-black/25 active:scale-95"
+              style={{ top: 'calc(0.75rem + env(safe-area-inset-top))' }}
             >
-              <X className="w-4 h-4" />
+              <ArrowLeft className="h-[18px] w-[18px]" strokeWidth={2} />
             </button>
-          </div>
 
-          <div className="flex flex-col items-center text-center">
-            <Avatar
-              src={conversation.contact?.avatar}
-              name={conversation.contact?.name}
-              size={80}
-              className="mb-3"
-            />
-            <h4 className="text-sm font-semibold text-on-surface">
-              {conversation.contact?.name}
-            </h4>
-            <p className="text-xs text-outline">{conversation.contact?.email}</p>
-          </div>
-
-          <div className="space-y-3 text-xs">
-            <div>
-              <span className="text-outline">Email:</span>
-              <p className="text-on-surface font-medium">{conversation.contact?.email}</p>
-            </div>
-            {conversation.contact?.phone && (
-              <div>
-                <span className="text-outline">Phone:</span>
-                <p className="text-on-surface font-medium">{conversation.contact?.phone}</p>
+            <div className="flex flex-col items-center px-6 text-center">
+              <div className="relative -mt-12">
+                <Avatar
+                  src={conversation.contact?.avatar}
+                  name={conversation.contact?.name}
+                  size={96}
+                  className="ring-4 ring-surface"
+                />
+                {conversation.isOnline && (
+                  <span className="absolute bottom-1.5 right-1.5 h-4 w-4 rounded-full border-[3px] border-surface bg-emerald-500" />
+                )}
               </div>
-            )}
+              <h3 className="mt-3 font-display text-lg font-semibold tracking-tight text-on-surface">
+                {conversation.contact?.name}
+              </h3>
+              {conversation.isOnline ? (
+                <span className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-emerald-500">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Online
+                </span>
+              ) : (
+                <span className="mt-1 text-[11px] text-outline">
+                  {formatLastSeen(conversation.contact?.lastSeen)}
+                </span>
+              )}
+            </div>
           </div>
 
-          <div className="border-t border-outline-variant/40 pt-4">
-            <h4 className="text-xs font-semibold text-on-surface mb-3">Shared Media</h4>
+          {/* Quick actions — the panel is the natural place to start a call from. */}
+          <div className="mt-5 grid grid-cols-3 gap-2 px-6">
+            {[
+              { icon: MessageSquare, label: 'Message', onClick: () => setShowInfoDrawer(false) },
+              { icon: Phone, label: 'Audio', onClick: () => onStartCall?.('voice') },
+              { icon: Video, label: 'Video', onClick: () => onStartCall?.('video') },
+            ].map(({ icon: Icon, label, onClick }) => (
+              <button
+                key={label}
+                type="button"
+                onClick={onClick}
+                className="flex flex-col items-center gap-1.5 rounded-2xl bg-surface-container px-2 py-3 text-[11px] font-semibold text-on-surface transition-colors duration-150 hover:bg-surface-container-high active:scale-95"
+              >
+                <Icon className="h-[18px] w-[18px] text-primary" strokeWidth={1.9} />
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div className="mt-6 space-y-2 px-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-outline">
+              Contact
+            </p>
+            <div className="card divide-y divide-outline-variant/60 overflow-hidden rounded-2xl">
+              {[
+                { icon: Mail, label: 'Email', value: conversation.contact?.email },
+                { icon: Phone, label: 'Phone', value: conversation.contact?.phone },
+              ]
+                .filter((row) => row.value)
+                .map(({ icon: Icon, label, value }) => (
+                  <div key={label} className="flex items-center gap-3 px-4 py-3">
+                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-secondary-container text-primary">
+                      <Icon className="h-4 w-4" strokeWidth={1.9} />
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[11px] text-outline">{label}</span>
+                      <span className="block truncate text-[13px] font-medium text-on-surface">
+                        {value}
+                      </span>
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-2 px-6">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-outline">
+                Shared media
+              </p>
+              {sharedImages.length > 0 && (
+                <span className="text-[11px] font-medium text-outline">
+                  {sharedImages.length}
+                </span>
+              )}
+            </div>
             {sharedImages.length === 0 ? (
-              <p className="text-xs text-outline">No shared media yet.</p>
+              <div className="card flex flex-col items-center gap-2 rounded-2xl px-4 py-8 text-center">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface-container text-outline">
+                  <Images className="h-[18px] w-[18px]" strokeWidth={1.9} />
+                </span>
+                <p className="text-xs text-outline">
+                  Photos you share will collect here.
+                </p>
+              </div>
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {sharedImages.map((attachment, index) => (

@@ -292,7 +292,7 @@ export const SettingsView = memo(function SettingsView({
           {onLogout && (
             <button
               onClick={onLogout}
-              className="flex w-full items-center justify-center gap-2 rounded-full border border-red-200 bg-red-50 py-3 text-[13px] font-semibold text-red-600 transition-colors duration-150 active:scale-95 md:justify-start md:gap-3 md:border-0 md:bg-transparent md:px-3 md:py-2.5 md:hover:bg-red-50 md:active:scale-100"
+              className="flex w-full items-center gap-2 rounded-xl border border-error/25 bg-error-container px-3 py-2.5 text-left text-[13px] font-semibold text-error transition-colors duration-150 hover:bg-error/15 active:scale-95 md:border-0 md:bg-transparent md:active:scale-100"
             >
               <LogOut className="h-[17px] w-[17px]" strokeWidth={1.9} />
               <span>Sign out</span>

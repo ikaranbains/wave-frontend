@@ -16,24 +16,10 @@ export function PwaRegistrar() {
 
     // Dev chunks are re-hashed on every edit, so a cached copy of `/_next/static`
     // gets served against freshly compiled HTML and the app dies on a missing
-    // module factory. Tear any worker down instead of registering one.
-    if (process.env.NODE_ENV !== 'production') {
-      navigator.serviceWorker
-        .getRegistrations()
-        .then((registrations) =>
-          Promise.all(registrations.map((worker) => worker.unregister()))
-        )
-        .then(() => caches?.keys())
-        .then((keys) =>
-          Promise.all(
-            (keys || [])
-              .filter((key) => key.startsWith('pingme-'))
-              .map((key) => caches.delete(key))
-          )
-        )
-        .catch(() => {});
-      return undefined;
-    }
+    // module factory. `?mode=push-only` keeps the worker registered — push needs a
+    // registration to exist — with every cache path in sw.js disabled.
+    const isProduction = process.env.NODE_ENV === 'production';
+    const scriptUrl = isProduction ? '/sw.js' : '/sw.js?mode=push-only';
 
     let registration;
     let updateTimer;
@@ -68,7 +54,7 @@ export function PwaRegistrar() {
 
     const register = async () => {
       try {
-        registration = await navigator.serviceWorker.register('/sw.js', {
+        registration = await navigator.serviceWorker.register(scriptUrl, {
           scope: '/',
           updateViaCache: 'none',
         });

@@ -7,28 +7,30 @@
     --primary: #f0612a;
     --primary-container: #ff8a45;
     --on-primary: #ffffff;
-    --surface: #efedea;
-    --surface-bright: #ffffff;
-    --surface-dim: #e4e1dd;
-    --surface-container-lowest: #ffffff;
-    --surface-container-low: #faf9f8;
-    --surface-container: #f4f3f1;
-    --surface-container-high: #ecebe8;
-    --surface-container-highest: #e3e1dd;
-    --on-surface: #1a1a1c;
-    --on-surface-variant: #5c5c60;
-    --outline: #8e8e93;
-    --outline-variant: #e8e6e2;
+    --surface: #eae7e2;
+    --surface-bright: #fcfbf9;
+    --surface-dim: #ded9d3;
+    --surface-container-lowest: #fcfbf9;
+    --surface-container-low: #f6f4f1;
+    --surface-container: #efece8;
+    --surface-container-high: #e7e3de;
+    --surface-container-highest: #ddd8d1;
+    --on-surface: #17171a;
+    --on-surface-variant: #4a4a4f;
+    --outline: #6b6b71;
+    --outline-variant: #dad5ce;
     --secondary-container: #fdf0e4;
     --on-secondary-container: #8a4420;
+    --error: #c62b23;
+    --error-container: #fdeceb;
 
-    --card-bg: #ffffff;
-    --card-border: rgba(26, 26, 28, 0.06);
-    --card-shadow: 0 1px 2px rgba(26, 26, 28, 0.04), 0 10px 30px -18px rgba(26, 26, 28, 0.18);
-    --glass-bg: rgba(255, 255, 255, 0.78);
-    --glass-border: rgba(26, 26, 28, 0.06);
+    --card-bg: #fcfbf9;
+    --card-border: rgba(26, 26, 28, 0.1);
+    --card-shadow: 0 1px 2px rgba(26, 26, 28, 0.06), 0 10px 30px -18px rgba(26, 26, 28, 0.22);
+    --glass-bg: rgba(252, 251, 249, 0.82);
+    --glass-border: rgba(26, 26, 28, 0.1);
     --glass-shadow: var(--card-shadow);
-    --glass-sheen: rgba(255, 255, 255, 0.9);
+    --glass-sheen: rgba(252, 251, 249, 0.9);
     --ambient-warmth: rgba(240, 97, 42, 0.045);
   }
 }
@@ -37,20 +39,22 @@
   --color-primary: #f0612a;
   --color-primary-container: #ff8a45;
   --color-on-primary: #ffffff;
-  --color-surface: #efedea;
-  --color-surface-bright: #ffffff;
-  --color-surface-dim: #e4e1dd;
-  --color-surface-container-lowest: #ffffff;
-  --color-surface-container-low: #faf9f8;
-  --color-surface-container: #f4f3f1;
-  --color-surface-container-high: #ecebe8;
-  --color-surface-container-highest: #e3e1dd;
-  --color-on-surface: #1a1a1c;
-  --color-on-surface-variant: #5c5c60;
-  --color-outline: #8e8e93;
-  --color-outline-variant: #e8e6e2;
+  --color-surface: #eae7e2;
+  --color-surface-bright: #fcfbf9;
+  --color-surface-dim: #ded9d3;
+  --color-surface-container-lowest: #fcfbf9;
+  --color-surface-container-low: #f6f4f1;
+  --color-surface-container: #efece8;
+  --color-surface-container-high: #e7e3de;
+  --color-surface-container-highest: #ddd8d1;
+  --color-on-surface: #17171a;
+  --color-on-surface-variant: #4a4a4f;
+  --color-outline: #6b6b71;
+  --color-outline-variant: #dad5ce;
   --color-secondary-container: #fdf0e4;
   --color-on-secondary-container: #8a4420;
+  --color-error: #c62b23;
+  --color-error-container: #fdeceb;
 
   --font-display: var(--font-bricolage), var(--font-sans), system-ui, sans-serif;
 
@@ -75,11 +79,13 @@ html.dark {
   --surface-container-high: #2d2926;
   --surface-container-highest: #38332e;
   --on-surface: #f1ede9;
-  --on-surface-variant: #b6afa8;
-  --outline: #8b837c;
+  --on-surface-variant: #c4bdb5;
+  --outline: #a49b93;
   --outline-variant: #343029;
   --secondary-container: #35231a;
   --on-secondary-container: #ffd6bd;
+  --error: #ff8a80;
+  --error-container: #3a1b19;
 
   --color-primary: #ff7a45;
   --color-primary-container: #ff945f;
@@ -93,11 +99,13 @@ html.dark {
   --color-surface-container-high: #2d2926;
   --color-surface-container-highest: #38332e;
   --color-on-surface: #f1ede9;
-  --color-on-surface-variant: #b6afa8;
-  --color-outline: #8b837c;
+  --color-on-surface-variant: #c4bdb5;
+  --color-outline: #a49b93;
   --color-outline-variant: #343029;
   --color-secondary-container: #35231a;
   --color-on-secondary-container: #ffd6bd;
+  --color-error: #ff8a80;
+  --color-error-container: #3a1b19;
 
   --card-bg: #1b1917;
   --card-border: rgba(255, 255, 255, 0.07);
@@ -117,10 +125,13 @@ html.dark [class~='bg-white/70'],
 html.dark [class~='bg-white/90'],
 html.dark [class~='bg-white/95'] { background-color: color-mix(in srgb, var(--surface-container) 90%, transparent); }
 
-/* Authentication chrome has a deliberately branded blue panel. Keep it dark
-   enough in dark mode for the white logo copy and feature text to stay legible. */
+/* The auth brand panel keeps its warm accent in dark mode, but the panel itself
+   becomes the dark surface — so `on-primary`, which flips to near-black there,
+   has to be re-pointed to a light tone for everything painted on top of it. */
 html.dark .auth-brand {
   background-color: #3d1b0c;
+  --on-primary: #ffe9dd;
+  --color-on-primary: #ffe9dd;
 }
 
 html.dark .auth-submit {
@@ -378,5 +389,102 @@ a {
   textarea,
   select {
     font-size: 16px;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Boot loader                                                        */
+/* ------------------------------------------------------------------ */
+
+/* Each row is drawn one wave period (11.4 user units) wider than the viewBox,
+   so sliding by exactly that distance loops with no visible seam. */
+@keyframes wave-flow {
+  from { transform: translateX(0); }
+  to { transform: translateX(-11.4px); }
+}
+
+.wave-flow {
+  transform-box: view-box;
+  animation: wave-flow 1.8s linear infinite;
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave-flow {
+    animation: none;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Chat header status                                                 */
+/* ------------------------------------------------------------------ */
+
+/* The status line opens from zero height once the thread has settled, so the
+   name lifts into place instead of the header landing fully formed. */
+@keyframes chat-status-reveal {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    transform: translateY(-3px);
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-status-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  animation: chat-status-reveal 320ms cubic-bezier(0.2, 0.8, 0.2, 1) 260ms forwards;
+}
+
+.chat-status-reveal > * {
+  overflow: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-status-reveal {
+    animation-delay: 0s;
+    animation-duration: 1ms;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Contact details drawer                                             */
+/* ------------------------------------------------------------------ */
+
+/* Stays mounted and slides: on mobile it rides over the thread, on desktop the
+   negative margin collapses the column it occupies while its own width — and so
+   its contents — stay put. */
+.info-drawer {
+  transition:
+    transform 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    margin-right 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 200ms ease;
+}
+
+.info-drawer[data-open='false'] {
+  transform: translateX(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (min-width: 768px) {
+  .info-drawer[data-open='false'] {
+    margin-right: -20rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .info-drawer {
+    transition: opacity 120ms ease;
+    transform: none;
+  }
+
+  .info-drawer[data-open='false'] {
+    transform: none;
   }
 }

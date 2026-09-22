@@ -12,7 +12,7 @@ export default function manifest() {
     display: 'standalone',
     display_override: ['window-controls-overlay', 'standalone', 'minimal-ui'],
     orientation: 'any',
-    background_color: '#efedea',
+    background_color: '#eae7e2',
     theme_color: '#f0612a',
     categories: ['social', 'productivity', 'communication'],
     prefer_related_applications: false,

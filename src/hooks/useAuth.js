@@ -57,8 +57,10 @@ export function useAuth() {
         currentUserRef.current = user;
         setCachedUser(user);
       })
-      .catch(() => {
-        if (active) clearSession();
+      .catch((error) => {
+        // Only a rejected session ends it. A timeout or an unreachable backend
+        // leaves the HttpOnly cookie valid, so the cached user stays signed in.
+        if (active && error?.response?.status === 401) clearSession();
       })
       .finally(() => {
         if (active) setIsAuthLoading(false);

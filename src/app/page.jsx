@@ -1,12 +1,12 @@
 'use client';
 
-import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChatArea } from '../components/ChatArea';
 import { ChatListPane } from '../components/ChatListPane';
 import { LoginScreen } from '../components/LoginScreen';
 import { Sidebar } from '../components/Sidebar';
+import { WaveLoader } from '../components/WaveMark';
 import { getCallHistoryApi } from '../services/api';
 import { useAuth } from '../hooks/useAuth';
 import { useCalls } from '../hooks/useCalls';
@@ -101,21 +101,8 @@ export default function Home() {
     await logout();
   }, [activeCall, endActiveCall, logout]);
 
-  const [callHistory, setCallHistory] = useState([]);
-  const [isCallHistoryLoading, setIsCallHistoryLoading] = useState(false);
-
-  const loadCallHistory = useCallback(async () => {
-    if (!auth.currentUser) return;
-    setIsCallHistoryLoading(true);
-    try {
-      const data = await getCallHistoryApi();
-      setCallHistory(data.calls || []);
-    } catch (err) {
-      console.error('Failed to load call history:', err);
-    } finally {
-      setIsCallHistoryLoading(false);
-    }
-  }, [auth.currentUser]);
+  // null means "not loaded yet" so the list needs no separate loading flag.
+  const [callHistory, setCallHistory] = useState(null);
 
   useEffect(() => {
     if (activeTab !== 'calls' || !auth.currentUser) return undefined;
@@ -127,9 +114,7 @@ export default function Home() {
       })
       .catch((err) => {
         console.error('Failed to load call history:', err);
-      })
-      .finally(() => {
-        if (active) setIsCallHistoryLoading(false);
+        if (active) setCallHistory([]);
       });
 
     return () => {
@@ -220,17 +205,7 @@ export default function Home() {
   if (auth.isAuthLoading) {
     return (
       <div className="ambient flex h-dvh w-screen items-center justify-center">
-        <div className="flex animate-pulse items-center gap-2.5 text-sm font-semibold text-primary">
-          <Image
-            src="/wave-mark.png"
-            alt=""
-            width={40}
-            height={40}
-            priority
-            className="h-10 w-10 rounded-2xl bg-white object-contain shadow-lg shadow-primary/15"
-          />
-          <span>Loading Wave…</span>
-        </div>
+        <WaveLoader className="h-16 w-36 text-primary" />
       </div>
     );
   }
@@ -288,9 +263,8 @@ export default function Home() {
 
       {activeTab === 'calls' && (
         <CallsView
-          calls={callHistory}
-          isLoading={isCallHistoryLoading}
-          onRefreshCalls={loadCallHistory}
+          calls={callHistory || []}
+          isLoading={callHistory === null}
           onStartCall={calls.startCall}
           onSelectConversation={(id) => {
             setActiveTab('messages');
@@ -305,14 +279,6 @@ export default function Home() {
           isLoading={chat.isContactsLoading || chat.isInitialDataLoading}
           onLoadUsers={chat.loadContacts}
           onStartChat={handleContactStart}
-        />
-      )}
-
-      {activeTab === 'calls' && (
-        <CallsView
-          conversations={chat.conversations}
-          currentUser={auth.currentUser}
-          onStartCall={calls.startCall}
         />
       )}
 
