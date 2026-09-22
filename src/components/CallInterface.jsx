@@ -257,10 +257,12 @@ export function CallInterface({
   useEffect(() => {
     if (isMinimized) return undefined;
 
-    window.history.pushState({ waveCallFullscreen: true }, '');
+    if (!window.history.state?.waveCallFullscreen) {
+      window.history.pushState({ ...window.history.state, waveCallFullscreen: true }, '');
+    }
 
-    const handlePopState = () => {
-      onMinimize?.();
+    const handlePopState = (event) => {
+      if (!event.state?.waveCallFullscreen) onMinimize?.();
     };
 
     window.addEventListener('popstate', handlePopState);

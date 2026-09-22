@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "check:image-compression": "node scripts/imageCompressionSelfCheck.mjs",
-    "check:message-dates": "node scripts/messageDateGroupsSelfCheck.mjs"
+    "check:message-dates": "node scripts/messageDateGroupsSelfCheck.mjs",
+    "check:view-history": "node scripts/viewHistorySelfCheck.mjs"
   },
   "dependencies": {
     "@emoji-mart/data": "^1.2.1",

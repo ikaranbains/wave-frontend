@@ -100,10 +100,9 @@ function mergeMessages(existing, incoming) {
   );
 }
 
-export function useConversations({ currentUser, isBackendConnected }) {
+export function useConversations({ currentUser, isBackendConnected, activeConversationId, onSelectConversation }) {
   const cacheUserId = getEntityId(currentUser);
   const [conversations, setConversations] = useState([]);
-  const [activeConversationId, setActiveConversationId] = useState(null);
   const [messagesMap, setMessagesMap] = useState({});
   const [contacts, setContacts] = useState([]);
   const [isInitialDataLoading, setIsInitialDataLoading] = useState(Boolean(currentUser));
@@ -134,11 +133,9 @@ export function useConversations({ currentUser, isBackendConnected }) {
   const resetConversationState = useCallback(() => {
     contactsAbortRef.current?.abort();
     messagesAbortRef.current?.abort();
-    activeConversationIdRef.current = null;
     messagesMapRef.current = {};
     setContacts([]);
     setConversations([]);
-    setActiveConversationId(null);
     setMessagesMap({});
     setPaginationMap({});
   }, []);
@@ -169,16 +166,11 @@ export function useConversations({ currentUser, isBackendConnected }) {
         if (cached) {
           const cachedConversations = cached.conversations || [];
           const cachedMessagesMap = cached.messagesMap || {};
-          const restoredConversationId = cachedConversations.some(
-            (conversation) => conversation.id === cached.activeConversationId
-          )
-            ? cached.activeConversationId
-            : null;
-          activeConversationIdRef.current = restoredConversationId;
           messagesMapRef.current = cachedMessagesMap;
           setConversations(cachedConversations);
           setMessagesMap(cachedMessagesMap);
-          setActiveConversationId(restoredConversationId);
+          // History owns the selected screen; cached data must not reopen a chat
+          // after Back or overwrite a notification/deep-link destination.
           cacheWasReady = true;
         }
 
@@ -327,11 +319,10 @@ export function useConversations({ currentUser, isBackendConnected }) {
     [currentUser]
   );
 
-  const selectConversation = useCallback(
+  const loadConversation = useCallback(
     async (conversationId) => {
       messagesAbortRef.current?.abort();
       activeConversationIdRef.current = conversationId;
-      setActiveConversationId(conversationId);
       setIsMessagesLoading(
         isBackendConnected && !messagesMapRef.current[conversationId]?.length
       );
@@ -369,6 +360,15 @@ export function useConversations({ currentUser, isBackendConnected }) {
     },
     [currentUser, isBackendConnected]
   );
+
+  useEffect(() => {
+    if (currentUser && activeConversationId) {
+      loadConversation(activeConversationId);
+    } else {
+      messagesAbortRef.current?.abort();
+    }
+    return () => messagesAbortRef.current?.abort();
+  }, [currentUser, activeConversationId, loadConversation]);
 
   /**
    * Prepend the next older page. Guarded against re-entry so a double click cannot
@@ -844,14 +844,14 @@ export function useConversations({ currentUser, isBackendConnected }) {
           formatted,
           ...previous.filter((item) => item.id !== formatted.id),
         ]);
-        await selectConversation(formatted.id);
+        onSelectConversation(formatted.id);
         return true;
       } catch (error) {
         console.error('Error starting conversation via API:', error);
         return false;
       }
     },
-    [currentUser, isBackendConnected, selectConversation]
+    [currentUser, isBackendConnected, onSelectConversation]
   );
 
   const deleteMessage = useCallback(
@@ -926,7 +926,6 @@ export function useConversations({ currentUser, isBackendConnected }) {
     conversations,
     activeConversation,
     activeConversationId,
-    setActiveConversationId,
     activeMessages: messagesMap[activeConversationId] || [],
     contacts,
     isInitialDataLoading,
@@ -940,7 +939,7 @@ export function useConversations({ currentUser, isBackendConnected }) {
     sendTypingStart,
     sendTypingStop,
     loadContacts,
-    selectConversation,
+    selectConversation: onSelectConversation,
     sendMessage,
     retryMessage,
     deleteMessage,

@@ -12,6 +12,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useCalls } from '../hooks/useCalls';
 import { useConversations } from '../hooks/useConversations';
 import { useTheme } from '../hooks/useTheme';
+import { useViewHistory } from '../hooks/useViewHistory';
 import { requestPushOnLaunch } from '../services/pushClient';
 
 const CallInterface = dynamic(
@@ -37,65 +38,45 @@ const SettingsView = dynamic(() =>
 );
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('messages');
-  const [activeSettingsSection, setActiveSettingsSection] = useState(null);
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const { view, navigate, back } = useViewHistory();
+  const { tab: activeTab, settingsSection: activeSettingsSection, search: isSearchOpen } = view;
+  const openConversation = useCallback((id) => {
+    navigate(
+      { tab: 'messages', conversationId: id, search: false },
+      { replace: Boolean(window.history.state?.waveView?.search) }
+    );
+  }, [navigate]);
   const auth = useAuth();
   const theme = useTheme();
-  const chat = useConversations(auth);
+  const chat = useConversations({
+    ...auth,
+    activeConversationId: view.conversationId,
+    onSelectConversation: openConversation,
+  });
   const calls = useCalls({
     currentUser: auth.currentUser,
     isBackendConnected: auth.isBackendConnected,
     activeConversation: chat.activeConversation,
   });
   const {
-    setActiveConversationId,
     startChatFromContact,
-    selectConversation,
     activeConversationId,
     loadOlderMessages: loadOlderMessagePage,
   } = chat;
-  const { activeCall, endActiveCall } = calls;
+  const { activeCall, endActiveCall, setIsCallMinimized } = calls;
   const { handleLogout: logout } = auth;
-  const closeSearch = useCallback(() => setIsSearchOpen(false), []);
+  const openSearch = useCallback(() => navigate({ search: true }), [navigate]);
+  const closeSearch = useCallback(() => {
+    if (window.history.state?.waveView?.search) back();
+  }, [back]);
   const selectTab = useCallback((tab) => {
-    setActiveTab(tab);
-    if (tab !== 'settings') setActiveSettingsSection(null);
-  }, []);
-  const closeSettingsSection = useCallback(() => {
-    if (window.history.state?.waveView?.settingsSection) {
-      window.history.back();
-    } else {
-      setActiveSettingsSection(null);
-    }
-  }, []);
-  const closeConversation = useCallback(
-    () => {
-      if (window.history.state?.waveView?.conversationId) {
-        window.history.back();
-      } else {
-        setActiveConversationId(null);
-      }
-    },
-    [setActiveConversationId]
-  );
+    navigate({ tab, conversationId: null, settingsSection: null, search: false });
+  }, [navigate]);
   const loadOlderMessages = useCallback(
     () => loadOlderMessagePage(activeConversationId),
     [loadOlderMessagePage, activeConversationId]
   );
-  const handleContactStart = useCallback(
-    async (contact) => {
-      if (await startChatFromContact(contact)) selectTab('messages');
-    },
-    [selectTab, startChatFromContact]
-  );
-  const handleSearchSelection = useCallback(
-    (id) => {
-      selectTab('messages');
-      selectConversation(id);
-    },
-    [selectConversation, selectTab]
-  );
+  const minimizeCall = useCallback(() => setIsCallMinimized(true), [setIsCallMinimized]);
   const handleLogout = useCallback(async () => {
     if (activeCall) endActiveCall();
     await logout();
@@ -138,37 +119,6 @@ export default function Home() {
     prevActiveCallRef.current = calls.activeCall;
   }, [calls.activeCall, auth.currentUser]);
 
-  // Deep links: manifest shortcuts (?tab=) and notification clicks (?conversation=).
-  const hasHandledLaunchUrl = useRef(false);
-  useEffect(() => {
-    if (hasHandledLaunchUrl.current || !auth.currentUser) return;
-    hasHandledLaunchUrl.current = true;
-
-    const applyLaunchUrl = async () => {
-      await Promise.resolve();
-      const params = new URLSearchParams(window.location.search);
-      const requestedTab = params.get('tab');
-      const requestedConversation = params.get('conversation');
-
-      if (['messages', 'calls', 'contacts', 'settings'].includes(requestedTab)) {
-        setActiveTab(requestedTab);
-      }
-      if (requestedConversation) {
-        selectTab('messages');
-        selectConversation(requestedConversation);
-      }
-      if (requestedTab || requestedConversation) {
-        window.history.replaceState(
-          { ...window.history.state },
-          '',
-          window.location.pathname
-        );
-      }
-    };
-
-    applyLaunchUrl();
-  }, [auth.currentUser, selectConversation, selectTab]);
-
   // Ask for notification permission on launch, then register the FCM token. Also
   // re-sends an existing token, which rotates. Best-effort: errors surface in
   // Settings, never here.
@@ -182,25 +132,24 @@ export default function Home() {
     const handleOpenConversation = (event) => {
       const conversationId = event.detail?.conversationId;
       if (!conversationId) return;
-      selectTab('messages');
-      selectConversation(conversationId);
+      openConversation(conversationId);
     };
 
     window.addEventListener('pingme:open-conversation', handleOpenConversation);
     return () =>
       window.removeEventListener('pingme:open-conversation', handleOpenConversation);
-  }, [selectConversation, selectTab]);
+  }, [openConversation]);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
       if ((event.metaKey || event.ctrlKey) && event.key === 'k') {
         event.preventDefault();
-        setIsSearchOpen(true);
+        openSearch();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [openSearch]);
 
   if (auth.isAuthLoading) {
     return (
@@ -224,9 +173,9 @@ export default function Home() {
     >
       <Sidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={selectTab}
         currentUser={auth.currentUser}
-        onOpenSearch={() => setIsSearchOpen(true)}
+        onOpenSearch={openSearch}
         hideOnMobile={activeTab === 'messages' && !!chat.activeConversationId}
       />
 
@@ -254,7 +203,7 @@ export default function Home() {
             onRetryMessage={chat.retryMessage}
             onDeleteMessage={chat.deleteMessage}
             onStartCall={calls.startCall}
-            onBack={closeConversation}
+            onBack={back}
             onTypingStart={chat.sendTypingStart}
             onTypingStop={chat.sendTypingStop}
           />
@@ -266,10 +215,7 @@ export default function Home() {
           calls={callHistory || []}
           isLoading={callHistory === null}
           onStartCall={calls.startCall}
-          onSelectConversation={(id) => {
-            setActiveTab('messages');
-            chat.selectConversation(id);
-          }}
+          onSelectConversation={openConversation}
         />
       )}
 
@@ -278,7 +224,7 @@ export default function Home() {
           contacts={chat.contacts}
           isLoading={chat.isContactsLoading || chat.isInitialDataLoading}
           onLoadUsers={chat.loadContacts}
-          onStartChat={handleContactStart}
+          onStartChat={startChatFromContact}
         />
       )}
 
@@ -286,8 +232,8 @@ export default function Home() {
         <SettingsView
           currentUser={auth.currentUser}
           activeSection={activeSettingsSection}
-          onSectionChange={setActiveSettingsSection}
-          onSectionBack={closeSettingsSection}
+          onSectionChange={(settingsSection) => navigate({ settingsSection })}
+          onSectionBack={back}
           theme={theme.theme}
           onThemeChange={theme.setTheme}
           onUserUpdated={auth.updateCurrentUser}
@@ -302,7 +248,7 @@ export default function Home() {
           onClose={closeSearch}
           conversations={chat.conversations}
           contacts={chat.contacts}
-          onSelectConversation={handleSearchSelection}
+          onSelectConversation={openConversation}
         />
       )}
       {calls.incomingCall && (
@@ -316,7 +262,7 @@ export default function Home() {
         <CallInterface
           call={calls.activeCall}
           isMinimized={calls.isCallMinimized}
-          onMinimize={() => calls.setIsCallMinimized(true)}
+          onMinimize={minimizeCall}
           onMaximize={() => calls.setIsCallMinimized(false)}
           onEnd={calls.endActiveCall}
         />
